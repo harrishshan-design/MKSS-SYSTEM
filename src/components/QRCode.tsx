@@ -1,0 +1,4 @@
+"use client";
+import { useEffect, useState } from "react";
+import { Download, Printer } from "lucide-react";
+export default function QRCode({value,label}:{value:string;label:string}) { const [image,setImage]=useState(""); useEffect(()=>{import("qrcode").then(QR=>QR.toDataURL(value,{width:320,margin:2,color:{dark:"#173d31",light:"#ffffff"}})).then(setImage);},[value]); return <div className="qr-card"><div className="qr-image">{image?<img src={image} alt={`QR code for ${label}`}/>:"Generating…"}</div><strong>{label}</strong><code>{value}</code><div className="row gap"><a className="button secondary" href={image} download={`MKSS-${label.replace(/\W+/g,"-")}.png`}><Download size={16}/> Download</a><button className="button secondary" onClick={()=>window.print()}><Printer size={16}/> Print</button></div></div>; }
