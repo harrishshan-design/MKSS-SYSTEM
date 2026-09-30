@@ -10,6 +10,7 @@ Lorry movement and security attendance PWA for a single warehouse or factory sit
 - Admin-only corrections with required reasons and audit logs
 - PostgreSQL as the source of truth, with queued Microsoft Graph Excel Online synchronization
 - Installable PWA shell and responsive guard/driver screens
+- Driver sign-up with email confirmation (when enabled in Supabase), pending status and admin approval
 
 ## Important location limitation
 
@@ -19,16 +20,16 @@ The driver page uses the browser Geolocation API while open and location sharing
 
 1. Install Node.js 22 or newer, then run `npm ci`.
 2. Copy `.env.example` to `.env.local` and fill in the values below. Never commit `.env.local`.
-3. Create a Supabase project. Apply `supabase/migrations/20260929132034_initial_schema.sql` in the Supabase SQL editor, or use the Supabase CLI migration workflow. This project uses server routes with a service role key; exposed public tables have RLS enabled with no direct browser policies. Ensure the `public` schema is enabled in Supabase Data API settings for server routes.
-4. In Supabase Authentication, configure your site URL and SMTP service for user invitations. Create your first admin account in Authentication → Users. Copy its UUID, then run:
+3. Create a Supabase project. Apply **both** SQL files in `supabase/migrations` in filename order in the Supabase SQL editor, or use the Supabase CLI migration workflow. This project uses server routes with a service role key; exposed public tables have RLS enabled with no direct browser policies. Ensure the `public` schema is enabled in Supabase Data API settings for server routes.
+4. In Supabase Authentication, configure your site URL and SMTP service for user invitations and driver sign-up confirmation. Add your deployed app URL to the allowed redirect URLs. Create your first admin account in Authentication → Users with an email and password you choose. Copy its UUID, then run:
 
    ```sql
    insert into public.users (id, name, role)
    values ('YOUR_AUTH_USER_UUID', 'Site Administrator', 'admin');
    ```
 
-5. Run `npm run dev` and open `http://localhost:3000`. Sign in as the admin.
-6. Create a company, driver, lorry and security guard. Assign the driver to the lorry. Use **User accounts** to invite the guard and driver by email. Configure the company geofence in **Site settings** before tracking visits.
+5. Run `npm run dev` and open `http://localhost:3000`. Sign in as the admin. **There is no default email or password.**
+6. Create companies, lorries and security guards. Drivers can choose **Create an account** on the sign-in screen. Their request appears under **Driver registrations** after they sign up. Select the matching registered company and an unassigned lorry, then approve. Approval creates the driver record, links the lorry and grants driver access. You can also create driver records yourself and invite drivers or guards through **User accounts**. Configure the company geofence in **Site settings** before tracking visits.
 
 ### Environment variables
 
