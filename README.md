@@ -20,7 +20,7 @@ The driver page uses the browser Geolocation API while open and location sharing
 
 1. Install Node.js 22 or newer, then run `npm ci`.
 2. Copy `.env.example` to `.env.local` and fill in the values below. Never commit `.env.local`.
-3. Create a Supabase project. Apply **both** SQL files in `supabase/migrations` in filename order in the Supabase SQL editor, or use the Supabase CLI migration workflow. This project uses server routes with a service role key; exposed public tables have RLS enabled with no direct browser policies. Ensure the `public` schema is enabled in Supabase Data API settings for server routes.
+3. Create a Supabase project. Apply **all** SQL files in `supabase/migrations` in filename order in the Supabase SQL editor, or use the Supabase CLI migration workflow. This project uses server routes with a service role key; exposed public tables have RLS enabled with no direct browser policies. Ensure the `public` schema is enabled in Supabase Data API settings for server routes.
 4. In Supabase Authentication, configure your site URL and SMTP service for user invitations and driver sign-up confirmation. Add your deployed app URL to the allowed redirect URLs. Create your first admin account in Authentication → Users with an email and password you choose. Copy its UUID, then run:
 
    ```sql
@@ -42,22 +42,19 @@ The driver page uses the browser Geolocation API while open and location sharing
 | `CRON_SECRET` | Secret bearer token for `/api/cron` |
 | `MICROSOFT_CLIENT_ID` | Microsoft Entra application ID |
 | `MICROSOFT_CLIENT_SECRET` | Entra client secret; server only |
-| `MICROSOFT_TENANT_ID` | Entra tenant ID |
-| `MICROSOFT_DRIVE_ID` | OneDrive or SharePoint drive ID |
-| `MICROSOFT_WORKBOOK_ID` | Drive item ID of an existing `.xlsx` workbook |
 | `MICROSOFT_TOKEN_ENCRYPTION_KEY` | Base64-encoded random 32-byte key for AES-256-GCM token encryption |
 
 Generate the encryption key with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. Keep it stable and secret; rotating it requires reconnecting Microsoft.
 
 ## Microsoft Entra and Excel setup
 
-1. Create an Entra app registration for your organization and add a **Web** redirect URI: `APP_URL/api/microsoft/callback`.
-2. Create a client secret. Add Microsoft Graph **delegated** `Files.ReadWrite` and `User.Read` permissions. Grant consent as required by your tenant. The app also requests `offline_access` for a refresh token. Microsoft Graph Excel workbook APIs do **not** support application permissions for these operations.
-3. Create an empty `.xlsx` workbook in OneDrive for Business or SharePoint. Set the drive and workbook item IDs in the environment. The app creates/uses these worksheets on first sync: `DAILY_LORRY_MOVEMENT`, `DRIVERS`, `COMPANIES`, `LORRIES`, `SECURITY_ATTENDANCE`, `GEOFENCE_EVENTS`.
-4. In MKSS SYSTEM, open **Excel sync**. The page shows any missing configuration and enables **Connect Microsoft** when the settings are complete. Sign in with a work or school account that can edit the workbook. The callback verifies that Microsoft Graph can open the configured file and read a worksheet before saving the connection. The refresh token is encrypted in `microsoft_connections`; it is never sent to the browser. The page checks workbook access again when opened and provides a **Sync now** action.
-5. Set up `/api/cron` to run every five minutes with `Authorization: Bearer CRON_SECRET`. The supplied `vercel.json` defines this schedule for Vercel. The worker processes queued changes, retries with backoff and leaves the database intact if Graph is unavailable.
+1. Create an Entra app registration with **Accounts in any organizational directory and personal Microsoft accounts** and add a **Web** redirect URI: `APP_URL/api/microsoft/callback`. Set `MICROSOFT_CLIENT_ID` and a server-only `MICROSOFT_CLIENT_SECRET`. No tenant, drive, workbook, worksheet, or table IDs are needed in the environment.
+2. Add Microsoft Graph **delegated** `Files.ReadWrite` and `User.Read` permissions. Grant consent as required by the organization or account. The app also requests `offline_access` for a refresh token.
+3. Create an `.xlsx` workbook in OneDrive or SharePoint and copy its **sharing link**. In **Admin → Site settings → Microsoft Excel / OneDrive**, paste the link and choose **Connect Microsoft**. Complete Microsoft sign-in with an account that can edit the workbook. MKSS resolves the link to a drive item, detects the workbook name, worksheets, and tables, and encrypts the refresh token before saving it in Supabase.
+4. Choose an empty worksheet or an Excel table as the sync destination. An empty worksheet receives the MKSS headers automatically. A chosen table must already have these eight columns, in order: `MKSS Key`, `Record Type`, `Record Code`, `Name`, `Status`, `Timestamp`, `Details`, `Updated At`. Save the destination, then use **Test Connection** and **Sync now**. Existing MKSS records are queued when the destination changes.
+5. Set up `/api/cron` to run every five minutes with `Authorization: Bearer CRON_SECRET`. The supplied `vercel.json` defines this schedule for Vercel. The worker processes queued changes and retries with backoff. Without a usable Microsoft connection, transactions still save in Supabase and Excel updates remain pending.
 
-The workbook is an output mirror. Administrators should avoid rearranging headers or manually moving rows because the sync worker matches records by the first column. Excel string values beginning with formula operators are escaped.
+The workbook is an output mirror. The selected destination stores one row per MKSS record, with a stable key and JSON details. Avoid rearranging MKSS headers or manually moving rows because the sync worker matches records by the first column. Excel string values beginning with formula operators are escaped. **Disconnect Microsoft** removes the saved token and workbook mapping from MKSS; it does not delete the workbook or Supabase records.
 
 ## Visit flow
 

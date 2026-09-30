@@ -1,5 +1,6 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { adminClient } from "./supabase";
+import { graph, mkssHeaders, savedAccessToken, workbookRoot, type Workbook } from "./microsoft-graph";
 
 const layout: Record<string,{sheet:string;headers:string[];select:string;row:(x:Record<string,any>)=>unknown[]}> = {
   visits:{sheet:"DAILY_LORRY_MOVEMENT",headers:["Visit ID","Date","Driver ID","Driver Name","Company","Lorry Registration","Vehicle Type","Security Guard","Security Registration Time","Company Time In","Loading Area In","Loading Area Out","Company Time Out","Loading Duration","Total Site Duration","Final Status"],select:"*,drivers(driver_code,full_name),companies(name),lorries(registration_number,vehicle_type),security_guards(full_name)",row:x=>[x.visit_code,x.visit_date,x.drivers?.driver_code||x.driver_id,x.drivers?.full_name,x.companies?.name,x.lorries?.registration_number,x.lorries?.vehicle_type,x.security_guards?.full_name,x.security_registered_at,x.company_time_in,x.loading_area_in,x.loading_area_out,x.company_time_out,x.loading_duration_seconds,x.total_duration_seconds,x.status]},
@@ -9,59 +10,108 @@ const layout: Record<string,{sheet:string;headers:string[];select:string;row:(x:
   security_attendance:{sheet:"SECURITY_ATTENDANCE",headers:["Attendance ID","Date","Guard ID","Guard Name","Shift","Site","Time In","Time Out","Hours Worked","Status"],select:"*,security_guards(guard_code,full_name)",row:x=>[x.id,x.date,x.security_guards?.guard_code||x.guard_id,x.security_guards?.full_name,x.shift,x.site,x.time_in,x.time_out,x.time_out?Math.round((new Date(x.time_out).getTime()-new Date(x.time_in).getTime())/360000)/10:null,x.status]},
   geofence_events:{sheet:"GEOFENCE_EVENTS",headers:["Event ID","Visit ID","Lorry","Driver","Event Type","Latitude","Longitude","Timestamp","Accuracy","Device ID"],select:"*,visits(visit_code,lorries(registration_number),drivers(full_name))",row:x=>[x.id,x.visits?.visit_code,x.visits?.lorries?.registration_number,x.visits?.drivers?.full_name,x.event_type,x.latitude,x.longitude,x.occurred_at,x.accuracy,x.device_id]}
 };
-const requiredMicrosoftVariables = ["MICROSOFT_CLIENT_ID","MICROSOFT_CLIENT_SECRET","MICROSOFT_TENANT_ID","MICROSOFT_DRIVE_ID","MICROSOFT_WORKBOOK_ID","MICROSOFT_TOKEN_ENCRYPTION_KEY","APP_URL"] as const;
-export function microsoftSetup(currentOrigin?: string) {
-  const missing = requiredMicrosoftVariables.filter(name => !process.env[name]?.trim());
-  const issues: string[] = [];
-  const encryptionKey = process.env.MICROSOFT_TOKEN_ENCRYPTION_KEY;
-  if (encryptionKey && Buffer.from(encryptionKey,"base64").length !== 32) issues.push("MICROSOFT_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key");
-  const appUrl = process.env.APP_URL;
-  if (appUrl) { try { const parsed = new URL(appUrl); if (!(["http:","https:"].includes(parsed.protocol) && parsed.pathname === "/" && !parsed.search && !parsed.hash)) issues.push("APP_URL must be the application origin"); if (currentOrigin && parsed.origin !== currentOrigin) issues.push("APP_URL must match the address used to open MKSS SYSTEM"); } catch { issues.push("APP_URL must be a valid URL"); } }
-  return { ready: missing.length === 0 && issues.length === 0, missing, issues };
-}
-function key() { const value=process.env.MICROSOFT_TOKEN_ENCRYPTION_KEY; if(!value) throw new Error("MICROSOFT_TOKEN_ENCRYPTION_KEY is missing"); const bytes=Buffer.from(value,"base64"); if(bytes.length!==32) throw new Error("Microsoft token encryption key must be 32 bytes, base64 encoded"); return bytes; }
-export function encrypt(value:string) { const iv=randomBytes(12); const cipher=createCipheriv("aes-256-gcm",key(),iv); const ciphertext=Buffer.concat([cipher.update(value,"utf8"),cipher.final()]); return Buffer.concat([iv,cipher.getAuthTag(),ciphertext]).toString("base64"); }
-function decrypt(value:string) { const bytes=Buffer.from(value,"base64"); const decipher=createDecipheriv("aes-256-gcm",key(),bytes.subarray(0,12)); decipher.setAuthTag(bytes.subarray(12,28)); return Buffer.concat([decipher.update(bytes.subarray(28)),decipher.final()]).toString("utf8"); }
-export function microsoftConfig() { const setup=microsoftSetup(); if(!setup.ready) throw new Error(`Microsoft setup incomplete: ${[...setup.missing,...setup.issues].join(", ")}`); const {MICROSOFT_CLIENT_ID:clientId,MICROSOFT_CLIENT_SECRET:clientSecret,MICROSOFT_TENANT_ID:tenantId,MICROSOFT_DRIVE_ID:driveId,MICROSOFT_WORKBOOK_ID:workbookId,APP_URL:appUrl}=process.env; return {clientId:clientId!,clientSecret:clientSecret!,tenantId:tenantId!,driveId:driveId!,workbookId:workbookId!,appUrl:new URL(appUrl!).origin}; }
-export async function exchangeCode(code:string) { const c=microsoftConfig(); const body=new URLSearchParams({client_id:c.clientId,client_secret:c.clientSecret,grant_type:"authorization_code",code,redirect_uri:`${c.appUrl}/api/microsoft/callback`,scope:"offline_access Files.ReadWrite User.Read"}); const response=await fetch(`https://login.microsoftonline.com/${c.tenantId}/oauth2/v2.0/token`,{method:"POST",body}); const data=await response.json(); if(!response.ok||!data.refresh_token||!data.access_token) throw new Error(data.error_description||"Microsoft authorization failed"); return {refreshToken:String(data.refresh_token),accessToken:String(data.access_token)}; }
-async function accessToken() { const c=microsoftConfig(); const db=adminClient(); const {data,error}=await db.from("microsoft_connections").select("encrypted_refresh_token").eq("id",1).single(); if(error||!data) throw new Error("Microsoft Excel is not connected"); const body=new URLSearchParams({client_id:c.clientId,client_secret:c.clientSecret,grant_type:"refresh_token",refresh_token:decrypt(data.encrypted_refresh_token),scope:"offline_access Files.ReadWrite User.Read"}); const response=await fetch(`https://login.microsoftonline.com/${c.tenantId}/oauth2/v2.0/token`,{method:"POST",body}); const token=await response.json(); if(!response.ok||!token.access_token) throw new Error(token.error_description||"Microsoft token refresh failed"); if(token.refresh_token) { const {error:saveError}=await db.from("microsoft_connections").update({encrypted_refresh_token:encrypt(token.refresh_token),updated_at:new Date().toISOString()}).eq("id",1); if(saveError) throw saveError; } return String(token.access_token); }
-async function graph(token:string,path:string,method="GET",body?:unknown) { const response=await fetch(`https://graph.microsoft.com/v1.0${path}`,{method,headers:{Authorization:`Bearer ${token}`,...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined}); const text=await response.text(); const data=text?JSON.parse(text):{}; if(!response.ok) throw new Error(`Graph ${response.status}: ${data.error?.message||text}`); return data; }
-export async function verifyWorkbookAccess(token:string) {
-  const c=microsoftConfig();
-  const itemPath=`/drives/${encodeURIComponent(c.driveId)}/items/${encodeURIComponent(c.workbookId)}`;
-  const item=await graph(token,`${itemPath}?$select=id,name,webUrl,file`);
-  if(!item.file) throw new Error("The configured workbook item is not a file");
-  const sheets=await graph(token,`${itemPath}/workbook/worksheets`);
-  if(!Array.isArray(sheets.value)||sheets.value.length===0) throw new Error("The configured file is not an accessible Excel workbook");
-  const firstSheet=sheets.value[0];
-  await graph(token,`${itemPath}/workbook/worksheets/${encodeURIComponent(String(firstSheet.id||firstSheet.name))}/usedRange(valuesOnly=true)`);
-  return {name:String(item.name||"Excel workbook"),webUrl:typeof item.webUrl==="string"?item.webUrl:null,worksheetCount:sheets.value.length};
-}
-export async function verifySavedWorkbook() { return verifyWorkbookAccess(await accessToken()); }
-function column(index:number) { let out=""; for(let n=index+1;n;n=Math.floor((n-1)/26)) out=String.fromCharCode(65+(n-1)%26)+out; return out; }
 function cell(value:unknown) { if(value===null||value===undefined) return ""; if(typeof value==="number"||typeof value==="boolean") return value; const text=String(value); return /^[=+\-@]/.test(text)?`'${text}`:text; }
-export async function syncOne(entityType:string,entityId:string) {
+export function exportRow(entityType:string,entityId:string,record:Record<string,any>) {
   const spec=layout[entityType]; if(!spec) throw new Error(`Unsupported Excel entity: ${entityType}`);
-  const db=adminClient(); const {data:record,error}=await db.from(entityType).select(spec.select).eq("id",entityId).single(); if(error||!record) throw error||new Error("Record not found");
-  const token=await accessToken(); const c=microsoftConfig(); const root=`/drives/${encodeURIComponent(c.driveId)}/items/${encodeURIComponent(c.workbookId)}/workbook`;
-  const sheets=await graph(token,`${root}/worksheets`); if(!(sheets.value as {name:string}[]).some(s=>s.name===spec.sheet)) await graph(token,`${root}/worksheets/add`,"POST",{name:spec.sheet});
-  const sheet=`${root}/worksheets/${encodeURIComponent(spec.sheet)}`;
-  const range=await graph(token,`${sheet}/usedRange(valuesOnly=true)`); const values:Array<Array<unknown>>=range.values||[];
-  const firstCell=String(values[0]?.[0]||"");
-  if(firstCell&&firstCell!==spec.headers[0]) throw new Error(`Worksheet ${spec.sheet} has an unexpected header; sync stopped to protect existing data`);
-  if(!firstCell) await graph(token,`${sheet}/range(address='A1:${column(spec.headers.length-1)}1')`,"PATCH",{values:[spec.headers]});
-  const row=spec.row(record as Record<string,any>).map(cell); const key=String(row[0]);
-  let rowNumber=values.findIndex((r,i)=>i>0&&String(r[0])===key)+1;
-  if(rowNumber===0) rowNumber=Math.max(2,values.length+1);
-  await graph(token,`${sheet}/range(address='A${rowNumber}:${column(row.length-1)}${rowNumber}')`,"PATCH",{values:[row]});
-  await db.from("excel_row_map").upsert({entity_type:entityType,entity_id:entityId,worksheet:spec.sheet,row_number:rowNumber},{onConflict:"entity_type,entity_id"});
+  const values=spec.row(record).map(cell);
+  const details=Object.fromEntries(spec.headers.map((header,index)=>[header,values[index]]));
+  const status=record.status || (typeof record.active==="boolean"?(record.active?"ACTIVE":"INACTIVE"):"");
+  return [`${entityType}:${entityId}`,entityType,cell(values[0]||entityId),cell(values[1]),cell(status),cell(record.occurred_at||record.updated_at||record.created_at||record.time_in||record.visit_date),JSON.stringify(details),new Date().toISOString()];
 }
-export async function processSyncQueue(limit=10) { const db=adminClient(); const now=new Date().toISOString(); await db.from("excel_sync_queue").update({sync_status:"failed",last_sync_error:"Worker timed out"}).eq("sync_status","processing").lt("next_attempt_at",now);
-  const {data:items,error}=await db.from("excel_sync_queue").select("*").in("sync_status",["pending","failed"]).lte("next_attempt_at",now).order("created_at").limit(limit); if(error) throw error;
+
+type SelectedConnection=Workbook&{selectedTargetKind:"worksheet"|"table";selectedTargetId:string};
+export async function syncOne(entityType:string,entityId:string,token:string,connection:SelectedConnection) {
+  const spec=layout[entityType]; if(!spec) throw new Error(`Unsupported Excel entity: ${entityType}`);
+  const db=adminClient();
+  const {data:record,error}=await db.from(entityType).select(spec.select).eq("id",entityId).single();
+  if(error||!record) throw error||new Error("Record not found");
+  const root=workbookRoot(connection);
+  const row=exportRow(entityType,entityId,record as Record<string,any>);
+  if(connection.selectedTargetKind==="worksheet") {
+    const sheet=`${root}/worksheets/${encodeURIComponent(connection.selectedTargetId)}`;
+    const header=await graph(token,`${sheet}/range(address='A1:H1')`);
+    const headerValues:Array<Array<unknown>>=Array.isArray(header.values)?header.values:[];
+    const currentHeaders=headerValues[0]||[];
+    const hasContent=currentHeaders.some(value=>value!==null&&value!==undefined&&value!=="");
+    if(hasContent&&!mkssHeaders.every((name,index)=>String(currentHeaders[index])===name)) throw new Error("Selected worksheet no longer has MKSS headers");
+    if(!hasContent) await graph(token,`${sheet}/range(address='A1:H1')`,"PATCH",{values:[mkssHeaders]});
+    let rowNumber=0;
+    for(let start=2;start<=100002;start+=500) {
+      const end=start+499;
+      const range=await graph(token,`${sheet}/range(address='A${start}:H${end}')`);
+      const values:Array<Array<unknown>>=Array.isArray(range.values)?range.values:[];
+      const matching=values.findIndex(existing=>String(existing?.[0]??"")===row[0]);
+      if(matching>=0){rowNumber=start+matching;break;}
+      const empty=values.findIndex(existing=>!existing?.some(value=>value!==null&&value!==undefined&&value!==""));
+      if(empty>=0){rowNumber=start+empty;break;}
+      if(values.length<500){rowNumber=start+values.length;break;}
+    }
+    if(!rowNumber)throw new Error("Selected worksheet has reached the MKSS row limit");
+    await graph(token,`${sheet}/range(address='A${rowNumber}:H${rowNumber}')`,"PATCH",{values:[row]});
+    return;
+  }
+
+  const table=`${root}/tables/${encodeURIComponent(connection.selectedTargetId)}`;
+  const header=await graph(token,`${table}/headerRowRange`);
+  if(!mkssHeaders.every((name,index)=>String(header.values?.[0]?.[index])===name)) throw new Error("Selected table no longer has MKSS columns");
+  let existingIndex:number|null=null;
+  for(let skip=0;skip<100000;skip+=500) {
+    const page=await graph(token,`${table}/rows?$top=500&$skip=${skip}`);
+    const rows:Array<{index:number;values:unknown[][]}>=Array.isArray(page.value)?page.value:[];
+    const found=rows.find(item=>String(item.values?.[0]?.[0])===row[0]);
+    if(found){existingIndex=found.index;break;}
+    if(rows.length<500)break;
+  }
+  if(existingIndex!==null) await graph(token,`${table}/rows/${existingIndex}`,"PATCH",{values:[row]});
+  else await graph(token,`${table}/rows/add`,"POST",{values:[row]});
+}
+
+export async function processSyncQueue(limit=10) {
+  const db=adminClient();
+  const owner=randomUUID();
+  const {data:acquired,error}=await db.rpc("acquire_excel_worker_lock",{p_owner:owner});
+  if(error)throw error;
+  if(!acquired)return {synced:0,failed:0,waiting:true};
+  try { return await processSyncQueueUnlocked(limit); }
+  finally { const {error:releaseError}=await db.rpc("release_excel_worker_lock",{p_owner:owner}); if(releaseError)console.error("Could not release Excel worker lock",releaseError); }
+}
+
+async function processSyncQueueUnlocked(limit:number) {
+  const db=adminClient();
+  const now=new Date().toISOString();
+  const {error:timedOutError}=await db.from("excel_sync_queue").update({sync_status:"pending",last_sync_error:"Worker timed out"}).eq("sync_status","processing").lt("next_attempt_at",now);
+  if(timedOutError)throw timedOutError;
+  const {data:rawConnection,error:connectionError}=await db.from("microsoft_connections").select("drive_id,workbook_item_id,selected_target_kind,selected_target_id").eq("id",1).maybeSingle();
+  if(connectionError)throw connectionError;
+  if(!rawConnection?.drive_id||!rawConnection.workbook_item_id||!rawConnection.selected_target_kind||!rawConnection.selected_target_id)return {synced:0,failed:0,waiting:true};
+  let token:string;
+  try { token=await savedAccessToken(); } catch { return {synced:0,failed:0,waiting:true}; }
+  const connection:SelectedConnection={driveId:rawConnection.drive_id,itemId:rawConnection.workbook_item_id,name:"",webUrl:null,selectedTargetKind:rawConnection.selected_target_kind,selectedTargetId:rawConnection.selected_target_id};
+  const {data:items,error}=await db.from("excel_sync_queue").select("*").in("sync_status",["pending","failed"]).lte("next_attempt_at",now).order("created_at").limit(limit);
+  if(error)throw error;
   let synced=0,failed=0;
-  for(const item of items||[]) { const attempts=item.sync_attempts+1; const {data:claimed}=await db.from("excel_sync_queue").update({sync_status:"processing",sync_attempts:attempts,next_attempt_at:new Date(Date.now()+10*60_000).toISOString()}).eq("id",item.id).in("sync_status",["pending","failed"]).select("id").maybeSingle(); if(!claimed) continue;
-    try { await syncOne(item.entity_type,item.entity_id); await db.from("excel_sync_queue").update({sync_status:"synced",last_sync_error:null,last_sync_time:new Date().toISOString()}).eq("id",item.id); synced++; }
-    catch(error) { await db.from("excel_sync_queue").update({sync_status:"failed",last_sync_error:String(error).slice(0,1000),next_attempt_at:new Date(Date.now()+Math.min(60,2**Math.min(attempts,6))*60_000).toISOString()}).eq("id",item.id); failed++; }
+  for(const item of items||[]) {
+    const attempts=item.sync_attempts+1;
+    const {data:claimed,error:claimError}=await db.from("excel_sync_queue").update({sync_status:"processing",sync_attempts:attempts,next_attempt_at:new Date(Date.now()+10*60_000).toISOString()}).eq("id",item.id).in("sync_status",["pending","failed"]).select("id").maybeSingle();
+    if(claimError)throw claimError;
+    if(!claimed)continue;
+    const {data:liveConnection,error:liveError}=await db.from("microsoft_connections").select("drive_id,workbook_item_id,selected_target_kind,selected_target_id").eq("id",1).maybeSingle();
+    if(liveError)throw liveError;
+    if(!liveConnection || liveConnection.drive_id!==connection.driveId || liveConnection.workbook_item_id!==connection.itemId || liveConnection.selected_target_kind!==connection.selectedTargetKind || liveConnection.selected_target_id!==connection.selectedTargetId) {
+      const {error:restoreError}=await db.from("excel_sync_queue").update({sync_status:"pending",next_attempt_at:new Date().toISOString()}).eq("id",item.id);
+      if(restoreError)throw restoreError;
+      return {synced,failed,waiting:true};
+    }
+    try {
+      await syncOne(item.entity_type,item.entity_id,token,connection);
+      const {error:doneError}=await db.from("excel_sync_queue").update({sync_status:"synced",last_sync_error:null,last_sync_time:new Date().toISOString()}).eq("id",item.id);
+      if(doneError)throw doneError;
+      synced++;
+    } catch(error) {
+      const {error:retryError}=await db.from("excel_sync_queue").update({sync_status:"pending",last_sync_error:(error instanceof Error?error.message:String(error)).slice(0,1000),next_attempt_at:new Date(Date.now()+Math.min(60,2**Math.min(attempts,6))*60_000).toISOString()}).eq("id",item.id);
+      if(retryError)throw retryError;
+      failed++;
+    }
   }
   return {synced,failed};
 }
