@@ -11,8 +11,13 @@ export async function GET(req: NextRequest) {
       db.from("microsoft_connections").select("connected_at,workbook_name,workbook_web_url,drive_id,workbook_item_id,selected_target_kind,selected_target_id,selected_target_name").eq("id", 1).maybeSingle(),
       db.from("excel_sync_queue").select("id,entity_type,sync_status,sync_attempts,last_sync_error,last_sync_time,created_at").order("created_at", { ascending: false }).limit(50),
     ]);
-    if (connection.error || queue.error) throw connection.error || queue.error;
     const setup = microsoftSetup(req.nextUrl.origin);
+    if (connection.error?.code === "42703" || connection.error?.code === "PGRST205") {
+      setup.ready = false;
+      setup.issues.push("Apply the Microsoft spreadsheet connection migration to Supabase");
+      return NextResponse.json({ setup, status: "authentication_required", connection: null, destinations: [], connectionError: null, queue: queue.data || [] });
+    }
+    if (connection.error || queue.error) throw connection.error || queue.error;
     let status: ConnectionStatus = "authentication_required";
     let connectionError: string | null = null;
     let destinations: Destination[] = [];
