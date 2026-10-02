@@ -10,7 +10,7 @@ Lorry movement and security attendance PWA for a single warehouse or factory sit
 - Admin-only corrections with required reasons and audit logs
 - PostgreSQL as the source of truth, with queued Microsoft Graph Excel Online synchronization
 - Installable PWA shell and responsive guard/driver screens
-- Driver sign-up with email confirmation (when enabled in Supabase), pending status and admin approval
+- Driver sign-up without an email confirmation link, followed by admin approval and lorry assignment
 - One-tap driver camera scan of the daily site QR, with signed-in check-ins saved in Supabase and CSV export by date
 
 ## Important location limitation
@@ -22,7 +22,7 @@ The driver page uses the browser Geolocation API while open and location sharing
 1. Install Node.js 22 or newer, then run `npm ci`.
 2. Copy `.env.example` to `.env.local` and fill in the values below. Never commit `.env.local`.
 3. Create a Supabase project. Apply **all** SQL files in `supabase/migrations` in filename order in the Supabase SQL editor, or use the Supabase CLI migration workflow. This project uses server routes with a service role key; exposed public tables have RLS enabled with no direct browser policies. Ensure the `public` schema is enabled in Supabase Data API settings for server routes.
-4. In Supabase Authentication, configure your site URL and SMTP service for user invitations and driver sign-up confirmation. Add your deployed app URL to the allowed redirect URLs. Create your first admin account in Authentication → Users with an email and password you choose. Copy its UUID, then run:
+4. In Supabase Authentication, configure your site URL and SMTP service if you use account invitations or password recovery. Driver sign-up itself does not send an email confirmation link. Add your deployed app URL to the allowed redirect URLs. Create your first admin account in Authentication → Users with an email and password you choose. Copy its UUID, then run:
 
    ```sql
    insert into public.users (id, name, role)
@@ -53,13 +53,13 @@ Generate the encryption key with `node -e "console.log(require('crypto').randomB
 2. Add Microsoft Graph **delegated** `Files.ReadWrite` and `User.Read` permissions. Grant consent as required by the organization or account. The app also requests `offline_access` for a refresh token.
 3. Create an `.xlsx` workbook in OneDrive or SharePoint and copy its **sharing link**. In **Admin → Site settings → Microsoft Excel / OneDrive**, paste the link and choose **Connect Microsoft**. Complete Microsoft sign-in with an account that can edit the workbook. MKSS resolves the link to a drive item, detects the workbook name, worksheets, and tables, and encrypts the refresh token before saving it in Supabase.
 4. Choose an empty worksheet or an Excel table as the sync destination. An empty worksheet receives the MKSS headers automatically. A chosen table must already have these eight columns, in order: `MKSS Key`, `Record Type`, `Record Code`, `Name`, `Status`, `Timestamp`, `Details`, `Updated At`. Save the destination, then use **Test Connection** and **Sync now**. Existing MKSS records are queued when the destination changes.
-5. Set up `/api/cron` with `Authorization: Bearer CRON_SECRET`. The supplied `vercel.json` runs it daily at 00:00 UTC to fit Vercel Hobby limits; administrators can also select **Sync now**. On a Vercel Pro plan, the schedule can be increased to every five minutes. The worker processes queued changes and retries with backoff. Without a usable Microsoft connection, transactions still save in Supabase and Excel updates remain pending.
+5. Set up `/api/cron` with `Authorization: Bearer CRON_SECRET`. The supplied `vercel.json` runs it daily at 16:00 UTC (midnight in Malaysia) to create that day's site QR and process queued work within Vercel Hobby limits. Opening Admin Attendance also creates the day's QR if the scheduled run has not done so. Administrators can select **Sync now** for Excel. Without a usable Microsoft connection, transactions still save in Supabase and Excel updates remain pending.
 
 The workbook is an output mirror. The selected destination stores one row per MKSS record, with a stable key and JSON details. Avoid rearranging MKSS headers or manually moving rows because the sync worker matches records by the first column. Excel string values beginning with formula operators are escaped. **Disconnect Microsoft** removes the saved token and workbook mapping from MKSS; it does not delete the workbook or Supabase records.
 
 ## Visit flow
 
-1. The admin generates the daily site QR in **Daily site QR & attendance**. After signing up and being approved once, a driver signs in and scans this QR each day. MKSS records the signed-in driver, assigned lorry, company, site and time in Supabase. The same day's repeat scan displays the existing check-in. The admin can review and export these check-ins as CSV from the same screen. Guards use the site QR separately for their shift attendance.
+1. MKSS generates one daily site QR at midnight Malaysia time, or when an admin first opens **Daily site QR & attendance** that day. After signing up and being approved once, a driver signs in and scans this QR each day. MKSS records the signed-in driver, assigned lorry, company, site and time in Supabase. The same day's repeat scan displays the existing check-in. The admin can review and export these check-ins as CSV from the same screen. Guards use the site QR separately for their shift attendance.
 2. Guard scans the driver's permanent QR and confirms entry. This creates the lorry visit in Supabase, records the guard and registration time, and blocks duplicate active visits. Daily driver check-in and lorry entry are separate records.
 3. While the driver's PWA is open, an active visit starts location monitoring and may prompt for location permission. A valid GPS fix inside the company radius records `company_time_in`.
 4. If configured, loading-zone entry and exit record their timestamps and duration.

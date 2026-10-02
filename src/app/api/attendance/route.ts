@@ -3,8 +3,9 @@ import { z } from "zod";
 import { actor, ApiError, audit, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
 import { siteDate } from "@/lib/date";
+import { ensureDailyQr } from "@/lib/daily-qr";
 export async function GET(req:NextRequest) {
-  try { await actor(req,["admin"]); const {data,error}=await adminClient().from("attendance_qr").select("*").eq("date",siteDate()).maybeSingle(); if(error) throw error; return NextResponse.json(data); } catch(error) { return fail(error); }
+  try { const who=await actor(req,["admin"]); return NextResponse.json(await ensureDailyQr(who.id)); } catch(error) { return fail(error); }
 }
 export async function POST(req:NextRequest) {
   try { const who=await actor(req,["admin"]); const {site}=z.object({site:z.string().min(2)}).parse(await json(req)); const db=adminClient(); const date=siteDate();
