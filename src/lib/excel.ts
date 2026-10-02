@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { adminClient } from "./supabase";
-import { graph, mkssHeaders, savedAccessToken, workbookRoot, type Workbook } from "./microsoft-graph";
+import { graph, microsoftSetup, mkssHeaders, savedAccessToken, workbookRoot, type Workbook } from "./microsoft-graph";
 
 const layout: Record<string,{sheet:string;headers:string[];select:string;row:(x:Record<string,any>)=>unknown[]}> = {
   visits:{sheet:"DAILY_LORRY_MOVEMENT",headers:["Visit ID","Date","Driver ID","Driver Name","Company","Lorry Registration","Vehicle Type","Security Guard","Security Registration Time","Company Time In","Loading Area In","Loading Area Out","Company Time Out","Loading Duration","Total Site Duration","Final Status"],select:"*,drivers(driver_code,full_name),companies(name),lorries(registration_number,vehicle_type),security_guards(full_name)",row:x=>[x.visit_code,x.visit_date,x.drivers?.driver_code||x.driver_id,x.drivers?.full_name,x.companies?.name,x.lorries?.registration_number,x.lorries?.vehicle_type,x.security_guards?.full_name,x.security_registered_at,x.company_time_in,x.loading_area_in,x.loading_area_out,x.company_time_out,x.loading_duration_seconds,x.total_duration_seconds,x.status]},
@@ -67,6 +67,7 @@ export async function syncOne(entityType:string,entityId:string,token:string,con
 }
 
 export async function processSyncQueue(limit=10) {
+  if (!microsoftSetup().ready) return {synced:0,failed:0,waiting:true};
   const db=adminClient();
   const owner=randomUUID();
   const {data:acquired,error}=await db.rpc("acquire_excel_worker_lock",{p_owner:owner});

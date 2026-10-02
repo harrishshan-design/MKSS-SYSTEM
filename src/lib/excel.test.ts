@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exportRow } from "./excel";
+import { exportRow, processSyncQueue } from "./excel";
 
 describe("Excel export rows", () => {
   it("uses a stable key and preserves record details", () => {
@@ -13,5 +13,18 @@ describe("Excel export rows", () => {
   it("escapes user text that Excel would interpret as a formula", () => {
     const row = exportRow("companies", "company-id", { id: "company-id", company_code: "COM-000001", name: "=HYPERLINK(\"https://example.com\")", active: true });
     expect(row[3]).toBe("'=HYPERLINK(\"https://example.com\")");
+  });
+});
+
+describe("optional Excel synchronization", () => {
+  it("leaves queued work waiting when Microsoft is not configured", async () => {
+    const saved = process.env.MICROSOFT_CLIENT_ID;
+    delete process.env.MICROSOFT_CLIENT_ID;
+    try {
+      await expect(processSyncQueue()).resolves.toEqual({ synced: 0, failed: 0, waiting: true });
+    } finally {
+      if (saved === undefined) delete process.env.MICROSOFT_CLIENT_ID;
+      else process.env.MICROSOFT_CLIENT_ID = saved;
+    }
   });
 });
