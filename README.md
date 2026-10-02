@@ -11,6 +11,7 @@ Lorry movement and security attendance PWA for a single warehouse or factory sit
 - PostgreSQL as the source of truth, with queued Microsoft Graph Excel Online synchronization
 - Installable PWA shell and responsive guard/driver screens
 - Driver sign-up with email confirmation (when enabled in Supabase), pending status and admin approval
+- One-tap driver camera scan of the daily site QR, with signed-in check-ins saved in Supabase and CSV export by date
 
 ## Important location limitation
 
@@ -58,12 +59,13 @@ The workbook is an output mirror. The selected destination stores one row per MK
 
 ## Visit flow
 
-1. Guard scans the driver's permanent QR and confirms entry. The server creates one active visit per lorry, records the guard and registration time, and blocks duplicates.
-2. While the driver's PWA is open, an active visit starts location monitoring and may prompt for location permission. A valid GPS fix inside the company radius records `company_time_in`.
-3. If configured, loading-zone entry and exit record their timestamps and duration.
-4. The first valid outside fix marks an exit pending. Another outside fix after the configured confirmation period completes the visit. A return inside cancels the pending exit.
-5. The dashboard polls automatically every 10 seconds and timers update every second. The cron worker flags visits exceeding the configured threshold as delayed.
-6. Significant changes enqueue Excel sync jobs. The admin can review status and retry failed jobs.
+1. The admin generates the daily site QR in **Daily site QR & attendance**. After signing up and being approved once, a driver signs in and scans this QR each day. MKSS records the signed-in driver, assigned lorry, company, site and time in Supabase. The same day's repeat scan displays the existing check-in. The admin can review and export these check-ins as CSV from the same screen. Guards use the site QR separately for their shift attendance.
+2. Guard scans the driver's permanent QR and confirms entry. This creates the lorry visit in Supabase, records the guard and registration time, and blocks duplicate active visits. Daily driver check-in and lorry entry are separate records.
+3. While the driver's PWA is open, an active visit starts location monitoring and may prompt for location permission. A valid GPS fix inside the company radius records `company_time_in`.
+4. If configured, loading-zone entry and exit record their timestamps and duration.
+5. The first valid outside fix marks an exit pending. Another outside fix after the configured confirmation period completes the visit. A return inside cancels the pending exit.
+6. The dashboard polls automatically every 10 seconds and timers update every second. The cron worker flags visits exceeding the configured threshold as delayed.
+7. Visit history and today's reports can be exported as CSV. Significant changes enqueue Excel sync jobs if Microsoft is configured; Microsoft credentials are optional for Supabase data collection.
 
 ## Deployment
 
