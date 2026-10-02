@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2, QrCode } from "lucide-react";
 import Scanner from "@/components/Scanner";
 import { api } from "@/lib/client-api";
+import { siteDate } from "@/lib/date";
 
 type Checkin = { id: string; created_at: string; new_value: { site: string; lorry: string } };
 
@@ -12,6 +13,7 @@ export default function DriverCheckin() {
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState("");
+  const [day, setDay] = useState(siteDate());
 
   useEffect(() => {
     api<{ checkin: Checkin | null }>("driver-checkin")
@@ -19,6 +21,16 @@ export default function DriverCheckin() {
       .catch(cause => setError(cause instanceof Error ? cause.message : String(cause)))
       .finally(() => setBusy(false));
   }, []);
+
+  useEffect(() => {
+    const updateDay = () => {
+      const today = siteDate();
+      if (today !== day) { setDay(today); setCheckin(null); }
+    };
+    const timer = setInterval(updateDay, 60_000);
+    document.addEventListener("visibilitychange", updateDay);
+    return () => { clearInterval(timer); document.removeEventListener("visibilitychange", updateDay); };
+  }, [day]);
 
   const onScan = useCallback(async (token: string) => {
     setScanning(false);
