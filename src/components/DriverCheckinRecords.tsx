@@ -21,17 +21,26 @@ export default function DriverCheckinRecords() {
   const [truncated, setTruncated] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
     setError("");
     try {
       const result = await api<{ rows: Checkin[]; truncated: boolean }>(`driver-checkin?from=${from}&to=${to}`);
       setRows(result.rows);
       setTruncated(result.truncated);
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setLoading(false); }
+    finally { if (!quiet) setLoading(false); }
   }, [from, to]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    let inFlight = false;
+    const timer = setInterval(() => {
+      if (document.hidden || inFlight) return;
+      inFlight = true;
+      void load(true).finally(() => { inFlight = false; });
+    }, 3_000);
+    return () => clearInterval(timer);
+  }, [load]);
 
   function download() {
     const lines = [["Date", "Time", "Driver", "Company", "Lorry", "Site"],
