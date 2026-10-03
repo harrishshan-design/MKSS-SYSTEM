@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, AlertTriangle, ArrowDownRight, ArrowRight, BarChart3, Building2, CalendarCheck, Check, ChevronDown, ClipboardList, Clock3, Download, LayoutDashboard, Loader2, LogOut, MapPin, Menu, Plus, QrCode, Radio, RefreshCw, Search, Settings2, ShieldCheck, Smartphone, Truck, Users, X } from "lucide-react";
-import { api } from "@/lib/client-api";
+import { api, ApiRequestError } from "@/lib/client-api";
 import { publicClient } from "@/lib/supabase";
 import type { Actor } from "@/lib/types";
 import Scanner from "@/components/Scanner";
@@ -26,9 +26,58 @@ function Empty({title,description}:{title:string;description:string}) { return <
 
 export default function Home() {
   const configured=Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL&&process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
-  const [sessionReady,setSessionReady]=useState(false),[actorInfo,setActorInfo]=useState<Actor|null>(null),[pending,setPending]=useState<{status:"PENDING"|"APPROVED"|"REJECTED";full_name:string;requested_company:string;requested_lorry:string}|null>(null),[authError,setAuthError]=useState(""),[section,setSection]=useState("overview"),[overview,setOverview]=useState<Overview|null>(null),[loading,setLoading]=useState(true),[sidebar,setSidebar]=useState(false),[tick,setTick]=useState(0);
-  const refresh=useCallback(async()=>{try { const data=await api<Overview>("overview"); setOverview(data); }catch(error){setAuthError(error instanceof Error?error.message:String(error));}finally{setLoading(false);}},[]);
-  useEffect(()=>{if(!configured){setSessionReady(true);return;}const client=publicClient();let mounted=true;async function loadIdentity(){try{const me=await api<Actor>("me");if(mounted){setActorInfo(me);setPending(null);setAuthError("");}}catch(error){try{const request=await api<{status:"PENDING"|"APPROVED"|"REJECTED";full_name:string;requested_company:string;requested_lorry:string}>("signup/status");if(mounted){setPending(request);setActorInfo(null);setAuthError("");}}catch{if(mounted){setPending(null);setActorInfo(null);setAuthError(error instanceof Error?error.message:String(error));}}}}client.auth.getSession().then(async({data})=>{if(data.session)await loadIdentity();if(mounted)setSessionReady(true);});const {data:sub}=client.auth.onAuthStateChange(event=>{if(event==="SIGNED_OUT"){setActorInfo(null);setPending(null);setOverview(null);setAuthError("");}if(event==="SIGNED_IN")setTimeout(()=>{void loadIdentity();},0);});return()=>{mounted=false;sub.subscription.unsubscribe();};},[configured]);
+  const [sessionReady,setSessionReady]=useState(false),[connectionIssue,setConnectionIssue]=useState(false),[retryIdentity,setRetryIdentity]=useState(0),[actorInfo,setActorInfo]=useState<Actor|null>(null),[pending,setPending]=useState<{status:"PENDING"|"APPROVED"|"REJECTED";full_name:string;requested_company:string;requested_lorry:string}|null>(null),[authError,setAuthError]=useState(""),[section,setSection]=useState("overview"),[overview,setOverview]=useState<Overview|null>(null),[loading,setLoading]=useState(true),[sidebar,setSidebar]=useState(false),[tick,setTick]=useState(0);
+  const refresh=useCallback(async()=>{try { const data=await api<Overview>("overview"); setOverview(data); setAuthError(""); }catch(error){setAuthError(error instanceof Error?error.message:String(error));}finally{setLoading(false);}},[]);
+  useEffect(() => {
+    if (!configured) { setSessionReady(true); return; }
+    const client = publicClient();
+    let mounted = true;
+    async function loadIdentity() {
+      try {
+        const me = await api<Actor>("me");
+        if (mounted) { setActorInfo(me); setPending(null); setConnectionIssue(false); setAuthError(""); }
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.status === 403) {
+          try {
+            const request = await api<{status:"PENDING"|"APPROVED"|"REJECTED";full_name:string;requested_company:string;requested_lorry:string}>("signup/status");
+            if (mounted) { setPending(request); setActorInfo(null); setConnectionIssue(false); setAuthError(""); }
+            return;
+          } catch (statusError) { error = statusError; }
+        }
+        if (!mounted) return;
+        if (error instanceof ApiRequestError && error.status === 401) {
+          setActorInfo(null); setPending(null); setConnectionIssue(false);
+        } else {
+          setConnectionIssue(true);
+        }
+        setAuthError(error instanceof Error ? error.message : String(error));
+      }
+    }
+    void client.auth.getSession().then(async ({ data, error }) => {
+      if (!mounted) return;
+      if (error) {
+        setConnectionIssue(true);
+        setAuthError("Connection to sign-in service lost. Check your connection and retry.");
+      } else if (data.session) {
+        await loadIdentity();
+      } else {
+        setConnectionIssue(false);
+      }
+      if (mounted) setSessionReady(true);
+    }).catch(() => {
+      if (mounted) { setConnectionIssue(true); setAuthError("Connection to sign-in service lost. Check your connection and retry."); setSessionReady(true); }
+    });
+    const { data: sub } = client.auth.onAuthStateChange(event => {
+      if (event === "SIGNED_OUT") { setActorInfo(null); setPending(null); setOverview(null); setConnectionIssue(false); setAuthError(""); }
+      if (event === "SIGNED_IN") setTimeout(() => { if (mounted) void loadIdentity(); }, 0);
+    });
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
+  }, [configured, retryIdentity]);
+  useEffect(() => {
+    if (!connectionIssue) return;
+    const timer = setInterval(() => setRetryIdentity(value => value + 1), 10000);
+    return () => clearInterval(timer);
+  }, [connectionIssue]);
   useEffect(()=>{if(!pending)return;const timer=setInterval(()=>{api<Actor>("me").then(me=>{setActorInfo(me);setPending(null);}).catch(()=>{});},15000);return()=>clearInterval(timer);},[pending]);
   useEffect(()=>{if(actorInfo?.role==="admin"||actorInfo?.role==="guard"){void refresh();const timer=setInterval(refresh,actorInfo.role==="admin"&&section==="attendance"?3000:10000);return()=>clearInterval(timer);}},[actorInfo,refresh,section]);
   useEffect(()=>{const timer=setInterval(()=>setTick(Date.now()),1000);if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});return()=>clearInterval(timer);},[]);
@@ -36,6 +85,7 @@ export default function Home() {
   if(!configured) return <div className="setup-shell"><div className="brand"><div className="brand-symbol"><Truck size={24}/></div><div><strong>MKSS</strong><span>SYSTEM</span></div></div><div className="setup-card"><span className="eyebrow">INITIAL SETUP</span><h1>Connect your site.</h1><p>Set your Supabase project URL and publishable key in <code>.env.local</code>, then restart the app. Follow the setup steps in <code>README.md</code>.</p><div className="setup-code">NEXT_PUBLIC_SUPABASE_URL<br/>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</div></div></div>;
   if(!sessionReady) return <div className="app-loading"><Loader2 className="spin" size={30}/> Loading MKSS SYSTEM</div>;
   if(pending) return <PendingApproval request={pending}/>;
+  if(!actorInfo && connectionIssue) return <div className="pending-shell"><div className="pending-card"><div className="brand"><div className="brand-symbol"><Truck size={24}/></div><div><strong>MKSS</strong><span>SYSTEM</span></div></div><AlertTriangle size={28}/><h1>Connection interrupted</h1><p>{authError || "Unable to load your account right now."} Your saved sign-in will be checked again.</p><button className="button primary" onClick={() => setRetryIdentity(value => value + 1)}><RefreshCw size={17}/> Retry connection</button></div></div>;
   if(!actorInfo) return <Login error={authError}/>;
   if(actorInfo.role==="driver") return <DriverHome actorInfo={actorInfo}/>;
   if(actorInfo.role==="guard") return <GuardHome actorInfo={actorInfo} overview={overview} refresh={refresh} tick={tick}/>;

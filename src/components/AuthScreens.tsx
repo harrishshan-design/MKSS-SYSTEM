@@ -17,9 +17,12 @@ export function Login({ error }: { error: string }) {
 
   async function signIn(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setMessage("");
-    const { error: signInError } = await publicClient().auth.signInWithPassword({ email, password });
-    if (signInError) setMessage(signInError.message);
-    setBusy(false);
+    try {
+      const { error: signInError } = await publicClient().auth.signInWithPassword({ email, password });
+      if (signInError) setMessage(signInError.message);
+    } catch {
+      setMessage("Connection to sign-in service lost. Check your connection and retry.");
+    } finally { setBusy(false); }
   }
 
   async function signUp(event: React.FormEvent) {

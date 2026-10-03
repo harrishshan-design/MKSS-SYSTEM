@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
     const token = req.headers.get("authorization")?.replace(/^Bearer /i, "");
     if (!token) throw new ApiError(401, "Sign in required");
     const { data, error } = await publicClient().auth.getUser(token);
+    if (error && (error.name === "AuthRetryableFetchError" || (error.status ?? 0) >= 500)) throw new ApiError(503, "Sign-in service is temporarily unavailable. Please retry.");
     if (error || !data.user) throw new ApiError(401, "Session expired. Sign in again.");
     const { data: request, error: requestError } = await adminClient().from("driver_registration_requests")
       .select("status,full_name,requested_company,requested_lorry,created_at")
