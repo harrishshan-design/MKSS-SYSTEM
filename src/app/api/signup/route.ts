@@ -1,17 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { ApiError, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
-
-const signup = z.object({
-  email: z.email().max(254),
-  password: z.string().min(12).max(128),
-  full_name: z.string().trim().min(2).max(120),
-  phone: z.string().trim().min(6).max(30),
-  licence_number: z.string().trim().max(80).optional(),
-  requested_company: z.string().trim().min(2).max(120),
-  requested_lorry: z.string().trim().min(2).max(40),
-});
+import { signup } from "@/lib/driver-registration";
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,9 +26,14 @@ export async function POST(req: NextRequest) {
       email: body.email.toLowerCase(),
       full_name: body.full_name,
       phone: body.phone,
-      licence_number: body.licence_number || null,
+      licence_number: body.licence_number,
+      identity_reference: body.identity_reference || null,
       requested_company: body.requested_company,
-      requested_lorry: body.requested_lorry.toUpperCase(),
+      company_contact_person: body.company_contact_person || null,
+      company_phone: body.company_phone || null,
+      company_email: body.company_email || null,
+      requested_lorry: body.requested_lorry,
+      requested_vehicle_type: body.requested_vehicle_type,
     });
     if (insertError) {
       await db.auth.admin.deleteUser(data.user.id);

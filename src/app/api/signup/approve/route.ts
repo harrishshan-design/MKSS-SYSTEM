@@ -7,6 +7,11 @@ export async function POST(req: NextRequest) {
   try {
     const who = await actor(req, ["admin"]);
     const body = z.object({ request_id: z.uuid() }).parse(await json(req));
+    const { data: registration, error: readError } = await adminClient().from("driver_registration_requests")
+      .select("licence_number,requested_vehicle_type,status").eq("id", body.request_id).single();
+    if (readError || registration?.status !== "PENDING") throw new ApiError(409, "Registration is no longer pending");
+    if (!registration.licence_number?.trim() || !registration.requested_vehicle_type?.trim())
+      throw new ApiError(409, "Add the driving licence number and vehicle type before approval");
     const { data, error } = await adminClient().rpc("approve_driver_registration_auto", {
       p_request_id: body.request_id,
       p_actor_id: who.id,
