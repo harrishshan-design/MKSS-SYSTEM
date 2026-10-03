@@ -52,8 +52,9 @@ export default function DriverCheckinRecords() {
     const link = document.createElement("a");
     link.href = url;
     link.download = `mkss-driver-checkins-${from}-to-${to}.csv`;
+    document.body.append(link);
     link.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => { URL.revokeObjectURL(url); link.remove(); }, 1000);
   }
 
   return <div className="panel driver-records">
