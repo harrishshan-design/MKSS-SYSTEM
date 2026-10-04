@@ -46,33 +46,10 @@ export async function POST(req: NextRequest) {
     const who = await actor(req, ["driver"]);
     if (!who.driver_id) throw new ApiError(403, "Driver profile missing");
     const { token } = bodySchema.parse(await json(req));
-    const db = adminClient();
-    const date = siteDate();
-    const { data: qr, error: qrError } = await db.from("attendance_qr")
-      .select("date,site").eq("date", date).eq("token", token).maybeSingle();
-    if (qrError) throw qrError;
-    if (!qr) throw new ApiError(400, "This is not today's site QR. Ask the administrator for the current code.");
-    const { data: driver, error: driverError } = await db.from("drivers")
-      .select("id,full_name,active,company_id,companies(name),lorries(registration_number,active)")
-      .eq("id", who.driver_id).single();
-    if (driverError) throw driverError;
-    if (!driver.active) throw new ApiError(403, "Driver account is inactive");
-    const lorry = driver.lorries?.find((item: { active: boolean }) => item.active);
-    if (!lorry) throw new ApiError(409, "Ask the administrator to assign your lorry before checking in");
-    const [start, end] = dayBounds(date);
-    const { data: existing, error: existingError } = await db.from("audit_logs")
-      .select("id,created_at,new_value").eq("action", action).eq("entity_id", who.driver_id)
-      .gte("created_at", start).lt("created_at", end).order("created_at", { ascending: false }).limit(1);
-    if (existingError) throw existingError;
-    if (existing?.length) return NextResponse.json({ duplicate: true, checkin: existing[0] });
-    const company = Array.isArray(driver.companies) ? driver.companies[0] : driver.companies;
-    const details = { date, site: qr.site, driver: driver.full_name,
-      company: company?.name || "", lorry: lorry.registration_number };
-    const { data: checkin, error } = await db.from("audit_logs").insert({
-      actor_id: who.id, action, entity_type: "drivers", entity_id: who.driver_id,
-      new_value: details,
-    }).select("id,created_at,new_value").single();
-    if (error) throw error;
-    return NextResponse.json({ duplicate: false, checkin }, { status: 201 });
+    const { data, error } = await adminClient().rpc("check_in_driver_and_open_visit", {
+      p_actor_id: who.id, p_driver_id: who.driver_id, p_token: token,
+    });
+    if (error) throw new ApiError(409, error.message);
+    return NextResponse.json(data, { status: data?.duplicate ? 200 : 201 });
   } catch (error) { return fail(error); }
 }

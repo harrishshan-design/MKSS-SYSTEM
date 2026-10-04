@@ -6,12 +6,12 @@ Lorry movement and security attendance PWA for a single warehouse or factory sit
 
 - Admin dashboard, live vehicle board, master data, visit history, attendance, reports and site settings
 - Permanent random driver QR, camera scanner, duplicate active visit protection and visit registration
-- Company and optional loading geofences, GPS accuracy checks, 120-second exit confirmation, automatic checkout and delay alerts
+- Separate site-entry and checkout geofences, GPS accuracy checks, 120-second exit confirmation, automatic checkout and delay alerts
 - Admin-only corrections with required reasons and audit logs
 - PostgreSQL as the source of truth, with queued Microsoft Graph Excel Online synchronization
 - Installable PWA shell and responsive guard/driver screens
 - Driver sign-up without an email confirmation link, followed by admin approval and lorry assignment
-- One-tap driver camera scan of the daily site QR, with signed-in check-ins saved in Supabase and CSV export by date
+- One-tap driver camera scan of the daily site QR, saving attendance and opening the assigned lorry visit in one database transaction
 
 ## Important location limitation
 
@@ -30,7 +30,7 @@ The driver page uses the browser Geolocation API while open and location sharing
    ```
 
 5. Run `npm run dev` and open `http://localhost:3000`. Sign in as the admin. **There is no default email or password.**
-6. Create companies, lorries and security guards. Drivers can choose **Create an account** on the sign-in screen. Their request appears under **Driver registrations** after they sign up. Select the matching registered company and an unassigned lorry, then approve. Approval creates the driver record, links the lorry and grants driver access. You can also create driver records yourself and invite drivers or guards through **User accounts**. Configure the company geofence in **Site settings** before tracking visits.
+6. Drivers can choose **Create an account** on the sign-in screen. Their request appears under **Driver registrations**; review or correct the submitted details, then approve. Approval creates the driver, company, and lorry records as needed. Guards are optional for the driver daily QR flow; create and invite guards if gate scans are used. Configure the company geofence in **Site settings** before tracking visits.
 
 ### Environment variables
 
@@ -59,12 +59,12 @@ The workbook is an output mirror. The selected destination stores one row per MK
 
 ## Visit flow
 
-1. MKSS generates one daily site QR at midnight Malaysia time, or when an admin first opens **Daily site QR & attendance** that day. After signing up and being approved once, a driver signs in and scans this QR each day. MKSS records the signed-in driver, assigned lorry, company, site and time in Supabase. The same day's repeat scan displays the existing check-in. The admin can review and export these check-ins as CSV from the same screen. Guards use the site QR separately for their shift attendance.
-2. Guard scans the driver's permanent QR and confirms entry. This creates the lorry visit in Supabase, records the guard and registration time, and blocks duplicate active visits. Daily driver check-in and lorry entry are separate records.
+1. MKSS generates one daily site QR at midnight Malaysia time, or when an admin first opens **Daily site QR & attendance** that day. After signing up and being approved once, a driver signs in and scans this QR each day. In one database transaction, MKSS saves attendance and opens a visit for the assigned lorry (unless an active visit already exists). The same day's repeat scan displays the existing check-in. The admin can review and export check-ins as CSV. Guards use the site QR separately for their shift attendance.
+2. A guard can also scan the driver's permanent QR to register the lorry. Duplicate active visits are blocked.
 3. While the driver's PWA is open, an active visit starts location monitoring and may prompt for location permission. A valid GPS fix inside the company radius records `company_time_in`.
 4. If configured, loading-zone entry and exit record their timestamps and duration.
-5. The first valid outside fix marks an exit pending. Another outside fix after the configured confirmation period completes the visit. A return inside cancels the pending exit.
-6. The dashboard polls automatically every 10 seconds and timers update every second. The cron worker flags visits exceeding the configured threshold as delayed.
+5. The first valid fix outside the site-entry radius marks the visit as leaving. A valid fix beyond the configured checkout distance after the confirmation period completes it. A return inside the site-entry radius cancels the pending exit. The MKSS production site uses a 300 m entry radius and a 5 km checkout distance.
+6. The live movement board polls every 3 seconds while open, shows every open driver and lorry visit plus GPS freshness, and lists completed exits. Other dashboard sections poll every 10 seconds; timers update every second. The cron worker flags visits exceeding the configured threshold as delayed.
 7. Visit history and today's reports can be exported as CSV. Significant changes enqueue Excel sync jobs if Microsoft is configured; Microsoft credentials are optional for Supabase data collection.
 
 ## Deployment

@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     if(!company) throw new ApiError(409,"Company geofence is not configured");
     const loading=fences?.find(f=>f.kind==="loading") as Fence|undefined;
     const position:Position=body;
-    const {patch,events}=evaluateGeofences(visit as Visit,position,company,loading,settings.exit_confirmation_seconds);
+    const {patch,events}=evaluateGeofences(visit as Visit,position,company,loading,settings.exit_confirmation_seconds,settings.exit_radius_meters);
     if(Object.keys(patch).length===0) return NextResponse.json({visit,events:[]});
     const {data:updated,error:updateError}=await db.rpc("apply_location_transition",{
       p_visit_id:visit.id,p_expected_updated_at:visit.updated_at,p_patch:patch,p_events:events,

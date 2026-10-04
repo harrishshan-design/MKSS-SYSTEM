@@ -8,7 +8,7 @@ import { siteDate } from "@/lib/date";
 
 type Checkin = { id: string; created_at: string; new_value: { site: string; lorry: string } };
 
-export default function DriverCheckin() {
+export default function DriverCheckin({ onCheckedIn }: { onCheckedIn?: () => void }) {
   const [checkin, setCheckin] = useState<Checkin | null>(null);
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(true);
@@ -41,10 +41,11 @@ export default function DriverCheckin() {
         method: "POST", body: JSON.stringify({ token }),
       });
       setCheckin(result.checkin);
+      onCheckedIn?.();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally { setBusy(false); }
-  }, []);
+  }, [onCheckedIn]);
 
   return <section className="driver-checkin">
     <span className="eyebrow">DAILY SITE CHECK-IN</span>
@@ -53,7 +54,7 @@ export default function DriverCheckin() {
       <div><strong>Checked in today</strong><span>{checkin.new_value.site} · {checkin.new_value.lorry} · {new Date(checkin.created_at).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}</span></div>
     </div> : <>
       <h2>Scan today&apos;s site QR</h2>
-      <p>Open the camera at the gate. Your details are saved automatically.</p>
+      <p>Scan once at the gate. Your attendance and assigned lorry visit are saved automatically.</p>
       <button className="scan-hero driver-scan" onClick={() => setScanning(true)} disabled={busy}>
         <span className="scan-icon">{busy ? <Loader2 className="spin" size={30}/> : <QrCode size={36}/>}</span>
         <span><strong>SCAN DAILY QR</strong><small>One scan for today&apos;s check-in</small></span>
