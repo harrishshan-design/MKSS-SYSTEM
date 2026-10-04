@@ -8,18 +8,20 @@ const schema=z.object({visit_id:z.uuid(),latitude:z.number().min(-90).max(90),lo
 export async function POST(req: NextRequest) {
   try {
     const who=await actor(req,["driver"]); const body=schema.parse(await json(req));
-    if(Math.abs(Date.now()-new Date(body.timestamp).getTime())>5*60_000) throw new ApiError(400,"Location timestamp must be within five minutes of server time");
+    const observedAt=new Date(body.timestamp);
+    if(Math.abs(Date.now()-observedAt.getTime())>2*60_000) throw new ApiError(400,"GPS reading must be within two minutes of server time. Check the phone clock and try again.");
     if(body.accuracy>100) throw new ApiError(422,"Location accuracy is too low. Move outdoors and try again.");
     const db=adminClient(); const {data:visit,error}=await db.from("visits").select("*").eq("id",body.visit_id).single(); if(error) throw error;
     if(visit.driver_id!==who.driver_id) throw new ApiError(403,"This visit belongs to another driver");
-    if(visit.last_location_at && new Date(body.timestamp)<=new Date(visit.last_location_at)) throw new ApiError(409,"Stale location update");
+    if(visit.last_observed_at && observedAt<=new Date(visit.last_observed_at)) throw new ApiError(409,"Stale location update");
     const [{data:fences,error:fenceError},{data:settings,error:settingsError}]=await Promise.all([db.from("geofences").select("*").eq("enabled",true),db.from("settings").select("*").eq("id",1).single()]);
     if(fenceError||settingsError) throw fenceError||settingsError;
     const company=fences?.find(f=>f.kind==="company") as Fence|undefined;
     if(!company) throw new ApiError(409,"Company geofence is not configured");
     const loading=fences?.find(f=>f.kind==="loading") as Fence|undefined;
-    const position:Position=body;
-    const {patch,events}=evaluateGeofences(visit as Visit,position,company,loading,settings.exit_confirmation_seconds,settings.exit_radius_meters);
+    const position:Position={...body,timestamp:new Date().toISOString()};
+    const {patch:transition,events}=evaluateGeofences(visit as Visit,position,company,loading,settings.exit_confirmation_seconds,settings.exit_radius_meters);
+    const patch={...transition,last_observed_at:body.timestamp};
     if(Object.keys(patch).length===0) return NextResponse.json({visit,events:[]});
     const {data:updated,error:updateError}=await db.rpc("apply_location_transition",{
       p_visit_id:visit.id,p_expected_updated_at:visit.updated_at,p_patch:patch,p_events:events,
@@ -28,6 +30,7 @@ export async function POST(req: NextRequest) {
     });
     if(updateError||!updated) {
       if(updateError?.code==="40001") throw new ApiError(409,"Concurrent location update. Retry with a fresh position.");
+      if(updateError?.code==="22023") throw new ApiError(409,"Stale location update");
       throw updateError||new Error("Location transition failed");
     }
     if(events.length) {

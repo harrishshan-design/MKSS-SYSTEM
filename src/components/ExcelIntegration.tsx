@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowUpRight, Check, Link2, Loader2, RefreshCw, Unplug } from "lucide-react";
 import { api } from "@/lib/client-api";
+import { siteDateTime } from "@/lib/date";
 
 type Destination = { id: string; name: string; kind: "worksheet" | "table"; worksheetName?: string };
 type SyncItem = { id: string; entity_type: string; sync_status: string; sync_attempts: number; last_sync_error: string | null; last_sync_time: string | null };
@@ -17,7 +18,7 @@ type Status = {
 };
 const labels: Record<ConnectionStatus, string> = { connected: "Connected", authentication_required: "Authentication required", workbook_inaccessible: "Workbook inaccessible", permission_denied: "Permission denied", invalid_spreadsheet_link: "Invalid spreadsheet link" };
 const headers = "MKSS Key, Record Type, Record Code, Name, Status, Timestamp, Details, Updated At";
-const date = (value: string | null) => value ? new Date(value).toLocaleString("en-MY", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+const date = siteDateTime;
 const selectedValue = (kind: string, id: string) => `${kind}:${id}`;
 
 export default function ExcelIntegration() {

@@ -12,14 +12,14 @@ import DriverAccounts from "@/components/DriverAccounts";
 import ExcelIntegration from "@/components/ExcelIntegration";
 import DriverCheckin from "@/components/DriverCheckin";
 import DriverCheckinRecords from "@/components/DriverCheckinRecords";
-import { siteDate } from "@/lib/date";
+import { siteDate, siteDateTime } from "@/lib/date";
 
 type AnyRow=Record<string,any>;
 type Overview={visits:AnyRow[];attendance:AnyRow[];syncPending:number;metrics?:AnyRow;monitoring?:{companyFenceConfigured:boolean;activeGuards:number};now:string};
 const navAdmin=[{id:"overview",label:"Overview",icon:LayoutDashboard},{id:"live",label:"Live vehicle board",icon:Radio},{id:"visits",label:"Visit history",icon:ClipboardList},{id:"drivers",label:"Drivers",icon:Users},{id:"lorries",label:"Lorries",icon:Truck},{id:"companies",label:"Companies",icon:Building2},{id:"security_guards",label:"Security guards",icon:ShieldCheck},{id:"registrations",label:"Driver registrations",icon:ClipboardList},{id:"accounts",label:"User accounts",icon:ShieldCheck},{id:"attendance",label:"Attendance",icon:CalendarCheck},{id:"reports",label:"Reports",icon:BarChart3},{id:"audit",label:"Audit log",icon:ClipboardList},{id:"settings",label:"Site settings",icon:Settings2}];
 const active=(v:AnyRow)=>!["COMPLETED","CANCELLED"].includes(v.status);
 const onPremises=(v:AnyRow)=>active(v)&&Boolean(v.company_time_in)&&v.status!=="LEAVING";
-const fmtTime=(value?:string|null)=>value?new Date(value).toLocaleString("en-MY",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"—";
+const fmtTime=siteDateTime;
 const csvCell=(value:unknown)=>{const text=String(value??"");const safe=/^[=+\-@]/.test(text)?`'${text}`:text;return `"${safe.replaceAll('"','""')}"`;};
 const duration=(seconds:number)=>{const h=Math.floor(seconds/3600),m=Math.floor((seconds%3600)/60),s=seconds%60;return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`};
 function Badge({status}:{status:string}) { return <span className={`badge ${status.toLowerCase().replace(/_/g,"-")}`}>{status.replace(/_/g," ")}</span>; }

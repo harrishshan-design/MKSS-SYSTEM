@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2, QrCode } from "lucide-react";
 import Scanner from "@/components/Scanner";
 import { api } from "@/lib/client-api";
-import { siteDate } from "@/lib/date";
+import { siteClockTime, siteDate } from "@/lib/date";
 
 type Checkin = { id: string; created_at: string; new_value: { site: string; lorry: string } };
 
@@ -51,7 +51,7 @@ export default function DriverCheckin({ onCheckedIn }: { onCheckedIn?: () => voi
     <span className="eyebrow">DAILY SITE CHECK-IN</span>
     {checkin ? <div className="driver-checkin-done">
       <Check size={26}/>
-      <div><strong>Checked in today</strong><span>{checkin.new_value.site} · {checkin.new_value.lorry} · {new Date(checkin.created_at).toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}</span></div>
+      <div><strong>Checked in today</strong><span>{checkin.new_value.site} · {checkin.new_value.lorry} · {siteClockTime(checkin.created_at)}</span></div>
     </div> : <>
       <h2>Scan today&apos;s site QR</h2>
       <p>Scan once at the gate. Your attendance and assigned lorry visit are saved automatically.</p>

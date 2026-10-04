@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import { api } from "@/lib/client-api";
-import { siteDate } from "@/lib/date";
+import { siteDate, siteDateTime } from "@/lib/date";
 
 type Checkin = { id: string; created_at: string; new_value: {
   date: string; site: string; driver: string; company: string; lorry: string;
@@ -68,7 +68,7 @@ export default function DriverCheckinRecords() {
     {error && <div className="notice error">{error}</div>}
     {truncated && <div className="notice error">More than 5,000 check-ins match this range. Narrow the dates before exporting.</div>}
     {rows.length ? <div className="table-scroll"><table><thead><tr><th>Time</th><th>Driver</th><th>Company</th><th>Lorry</th><th>Site</th></tr></thead><tbody>
-      {rows.map(row => <tr key={row.id}><td>{new Date(row.created_at).toLocaleString("en-MY")}</td><td>{row.new_value.driver}</td><td>{row.new_value.company}</td><td>{row.new_value.lorry}</td><td>{row.new_value.site}</td></tr>)}
+      {rows.map(row => <tr key={row.id}><td>{siteDateTime(row.created_at)}</td><td>{row.new_value.driver}</td><td>{row.new_value.company}</td><td>{row.new_value.lorry}</td><td>{row.new_value.site}</td></tr>)}
     </tbody></table></div> : <p className="muted">No driver check-ins in this date range.</p>}
   </div>;
 }
