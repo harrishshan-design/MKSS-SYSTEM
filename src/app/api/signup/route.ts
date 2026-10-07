@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
       phone: body.phone,
       identity_reference: body.identity_reference,
       requested_company: body.requested_company,
+      requested_lorry: body.requested_lorry,
       has_driving_licence: body.has_driving_licence,
       trip_type: body.trip_type,
     });

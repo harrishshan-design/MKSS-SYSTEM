@@ -6,6 +6,7 @@ export const driverDetails = z.object({
   phone: z.string().trim().min(6).max(30),
   identity_reference: z.string().trim().min(6).max(30),
   requested_company: z.string().trim().min(2).max(120),
+  requested_lorry: z.string().trim().min(2).max(40).transform(value => value.toUpperCase()),
   has_driving_licence: z.boolean(),
   trip_type: z.enum(["Hantar Barang", "Ambil Barang"]),
 });

@@ -33,6 +33,7 @@ export async function PATCH(req: NextRequest) {
     const { data: updated, error: updateError } = await db.from("driver_registration_requests").update({
       email: body.email, full_name: body.full_name, phone: body.phone,
       identity_reference: body.identity_reference, requested_company: body.requested_company,
+      requested_lorry: body.requested_lorry,
       has_driving_licence: body.has_driving_licence, trip_type: body.trip_type,
     }).eq("id", body.id).eq("status", "PENDING").select(fields).maybeSingle();
     if (updateError || !updated) {
@@ -43,8 +44,8 @@ export async function PATCH(req: NextRequest) {
       throw new ApiError(409, updateError?.message || "This registration was reviewed while you were editing");
     }
     await audit(who, "DRIVER_REGISTRATION_EDITED", "driver_registration_requests", body.id,
-      { email: previous.email, full_name: previous.full_name, phone: previous.phone, identity_reference: previous.identity_reference, requested_company: previous.requested_company, has_driving_licence: previous.has_driving_licence, trip_type: previous.trip_type },
-      { email: updated.email, full_name: updated.full_name, phone: updated.phone, identity_reference: updated.identity_reference, requested_company: updated.requested_company, has_driving_licence: updated.has_driving_licence, trip_type: updated.trip_type });
+      { email: previous.email, full_name: previous.full_name, phone: previous.phone, identity_reference: previous.identity_reference, requested_company: previous.requested_company, requested_lorry: previous.requested_lorry, has_driving_licence: previous.has_driving_licence, trip_type: previous.trip_type },
+      { email: updated.email, full_name: updated.full_name, phone: updated.phone, identity_reference: updated.identity_reference, requested_company: updated.requested_company, requested_lorry: updated.requested_lorry, has_driving_licence: updated.has_driving_licence, trip_type: updated.trip_type });
     return NextResponse.json(updated);
   } catch (error) { return fail(error); }
 }
