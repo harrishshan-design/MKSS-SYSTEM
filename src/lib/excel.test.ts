@@ -14,6 +14,12 @@ describe("Excel export rows", () => {
     const row = exportRow("companies", "company-id", { id: "company-id", company_code: "COM-000001", name: "=HYPERLINK(\"https://example.com\")", active: true });
     expect(row[3]).toBe("'=HYPERLINK(\"https://example.com\")");
   });
+
+  it("never includes the driver QR signing secret in reporting rows", () => {
+    const row = exportRow("drivers", "driver-id", { id: "driver-id", full_name: "Driver", qr_token: "private-qr-secret", active: true });
+    expect(String(row[6])).not.toContain("private-qr-secret");
+    expect(JSON.parse(String(row[6]))).not.toHaveProperty("QR ID");
+  });
 });
 
 describe("optional Excel synchronization", () => {

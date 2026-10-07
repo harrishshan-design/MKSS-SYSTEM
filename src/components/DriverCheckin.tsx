@@ -37,13 +37,23 @@ export default function DriverCheckin({ onCheckedIn }: { onCheckedIn?: () => voi
     setBusy(true);
     setError("");
     try {
+      if (!navigator.geolocation) throw new Error("This phone cannot provide GPS. Ask security to register your arrival at the gate.");
+      const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true, maximumAge: 0, timeout: 20_000,
+        }));
       const result = await api<{ checkin: Checkin }>("driver-checkin", {
-        method: "POST", body: JSON.stringify({ token }),
+        method: "POST", body: JSON.stringify({ token, location: {
+          latitude: position.coords.latitude, longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy, timestamp: new Date(position.timestamp).toISOString(),
+        } }),
       });
       setCheckin(result.checkin);
       onCheckedIn?.();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(cause && typeof cause === "object" && "code" in cause && "message" in cause
+        ? `Live GPS is required at the gate: ${String(cause.message)}. Ask security to register your arrival if GPS is unavailable.`
+        : cause instanceof Error ? cause.message : String(cause));
     } finally { setBusy(false); }
   }, [onCheckedIn]);
 
@@ -54,7 +64,7 @@ export default function DriverCheckin({ onCheckedIn }: { onCheckedIn?: () => voi
       <div><strong>Checked in today</strong><span>{checkin.new_value.site} · {checkin.new_value.lorry} · {siteClockTime(checkin.created_at)}</span></div>
     </div> : <>
       <h2>Scan today&apos;s site QR</h2>
-      <p>Scan once at the gate. Your attendance and assigned lorry visit are saved automatically.</p>
+      <p>Scan once at the gate with location enabled. Your attendance and assigned lorry visit are saved automatically.</p>
       <button className="scan-hero driver-scan" onClick={() => setScanning(true)} disabled={busy}>
         <span className="scan-icon">{busy ? <Loader2 className="spin" size={30}/> : <QrCode size={36}/>}</span>
         <span><strong>SCAN DAILY QR</strong><small>One scan for today&apos;s check-in</small></span>

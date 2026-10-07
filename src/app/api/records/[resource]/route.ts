@@ -12,7 +12,7 @@ const schemas = {
 type Resource = keyof typeof schemas;
 function resource(value: string): Resource { if (!(value in schemas)) throw new ApiError(404,"Unknown resource"); return value as Resource; }
 export async function GET(req: NextRequest, context: { params: Promise<{resource:string}> }) {
-  try { await actor(req,["admin"]); const table = resource((await context.params).resource); const { data,error } = await adminClient().from(table).select("*").order("created_at",{ascending:false}).limit(500); if(error) throw error; return NextResponse.json(data); }
+  try { await actor(req,["admin"]); const table = resource((await context.params).resource); const { data,error } = await adminClient().from(table).select("*").order("created_at",{ascending:false}).limit(500); if(error) throw error; return NextResponse.json(table==="drivers"?data?.map(row=>{const copy={...row};delete (copy as Record<string,unknown>).qr_token;return copy;}):data); }
   catch(error) { return fail(error); }
 }
 export async function POST(req: NextRequest, context: { params: Promise<{resource:string}> }) {

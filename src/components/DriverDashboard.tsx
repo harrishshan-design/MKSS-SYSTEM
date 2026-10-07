@@ -13,11 +13,15 @@ type DriverVisit = {
   id: string;
   visit_code: string;
   status: string;
+  security_registered_at: string;
+  company_time_in: string | null;
+  loading_area_in: string | null;
+  loading_area_out: string | null;
   last_location_at: string | null;
   company_time_out: string | null;
 };
 type DriverData = {
-  driver: { full_name: string; qr_token: string; default_trip_type: string | null; companies?: { name: string } | null; lorries?: { registration_number: string; active: boolean }[] };
+  driver: { full_name: string; pass_code: string | null; default_trip_type: string | null; companies?: { name: string } | null; lorries?: { registration_number: string; active: boolean }[] };
   visits: DriverVisit[];
 };
 type LocationResult = { visit: DriverVisit; events: string[] };
@@ -31,6 +35,7 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
   const activeVisitIdRef = useRef<string | undefined>(undefined);
   const activeVisit = data?.visits?.find(visit => !["COMPLETED", "CANCELLED"].includes(visit.status));
   const activeVisitId = activeVisit?.id;
+  const latestVisit = data?.visits?.[0];
   useEffect(() => { activeVisitIdRef.current = activeVisitId; }, [activeVisitId]);
 
   const load = useCallback(async () => {
@@ -104,7 +109,8 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
         {data.driver.lorries?.some(lorry => lorry.active)
           ? <DriverCheckin onCheckedIn={load}/>
           : <div className="notice">Your account is approved. Ask the admin to assign your lorry before scanning the daily QR.</div>}
-        <div className="driver-pass"><div className="pass-header"><span>YOUR PERMANENT DRIVER PASS</span><Truck size={25}/></div><QRCodeView value={data.driver.qr_token} label={data.driver.full_name}/><div className="pass-bottom"><div><span>TRANSPORT COMPANY</span><strong>{data.driver.companies?.name || "—"}</strong></div><div><span>ASSIGNED LORRY</span><strong>{data.driver.lorries?.find(lorry => lorry.active)?.registration_number || "—"}</strong></div><div><span>TYPE</span><strong>{data.driver.default_trip_type || "—"}</strong></div></div></div>
+        <div className="driver-pass"><div className="pass-header"><span>YOUR ROTATING DRIVER PASS</span><Truck size={25}/></div>{data.driver.pass_code?<QRCodeView value={data.driver.pass_code} label={data.driver.full_name} secure/>:<p>This driver pass is inactive. Ask an admin to reactivate it.</p>}<div className="pass-bottom"><div><span>TRANSPORT COMPANY</span><strong>{data.driver.companies?.name || "—"}</strong></div><div><span>ASSIGNED LORRY</span><strong>{data.driver.lorries?.find(lorry => lorry.active)?.registration_number || "—"}</strong></div><div><span>TYPE</span><strong>{data.driver.default_trip_type || "—"}</strong></div></div></div>
+        {latestVisit && <div className="location-card"><div className="section-heading"><h2>Latest trip · {latestVisit.visit_code}</h2><span className={`badge ${latestVisit.status.toLowerCase().replaceAll("_", "-")}`}>{latestVisit.status.replaceAll("_", " ")}</span></div><div className="trip-steps">{[["Arrival registered",latestVisit.security_registered_at],["Gate entry",latestVisit.company_time_in],["Loading started",latestVisit.loading_area_in],["Loading finished",latestVisit.loading_area_out],["Site exit",latestVisit.company_time_out]].map(([label,time])=><div key={label} className={time?"done":"pending"}><span>{label}</span><strong>{time?siteClockTime(time):"Pending"}</strong></div>)}</div></div>}
         {activeVisit && <div className="location-card">
           <div className="section-heading"><h2>Active visit</h2><span className={`badge ${activeVisit.status.toLowerCase().replaceAll("_", "-")}`}>{activeVisit.status.replaceAll("_", " ")}</span></div>
           <strong>{activeVisit.visit_code}</strong>

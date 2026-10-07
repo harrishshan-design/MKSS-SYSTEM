@@ -3,9 +3,12 @@ import { z } from "zod";
 import { actor, ApiError, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
 import { siteDate } from "@/lib/date";
+import { ensureDailyQr } from "@/lib/daily-qr";
+import { verifyDailyCode } from "@/lib/rotating-qr";
+import { requireOnSitePosition, sitePosition } from "@/lib/site-location";
 
 const action = "DRIVER_DAILY_CHECKIN";
-const bodySchema = z.object({ token: z.uuid() });
+const bodySchema = z.object({ token: z.string().max(160), location: sitePosition });
 
 function dayBounds(date: string) {
   const start = new Date(`${date}T00:00:00+08:00`);
@@ -45,9 +48,12 @@ export async function POST(req: NextRequest) {
   try {
     const who = await actor(req, ["driver"]);
     if (!who.driver_id) throw new ApiError(403, "Driver profile missing");
-    const { token } = bodySchema.parse(await json(req));
+    const { token, location } = bodySchema.parse(await json(req));
+    const qr = await ensureDailyQr();
+    if (!verifyDailyCode(token, qr.date, qr.challenge_secret)) throw new ApiError(409, "This site QR has expired. Scan the current code.");
+    await requireOnSitePosition(location);
     const { data, error } = await adminClient().rpc("check_in_driver_and_open_visit", {
-      p_actor_id: who.id, p_driver_id: who.driver_id, p_token: token,
+      p_actor_id: who.id, p_driver_id: who.driver_id, p_token: qr.token,
     });
     if (error) throw new ApiError(409, error.message);
     return NextResponse.json(data, { status: data?.duplicate ? 200 : 201 });
