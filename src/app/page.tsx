@@ -12,11 +12,13 @@ import DriverAccounts from "@/components/DriverAccounts";
 import ExcelIntegration from "@/components/ExcelIntegration";
 import DriverDashboard from "@/components/DriverDashboard";
 import DriverCheckinRecords from "@/components/DriverCheckinRecords";
+import MonitorHistory from "@/components/MonitorHistory";
 import { siteDate, siteDateTime } from "@/lib/date";
 
 type AnyRow=Record<string,any>;
 type Overview={visits:AnyRow[];attendance:AnyRow[];syncPending:number;metrics?:AnyRow;monitoring?:{companyFenceConfigured:boolean;activeGuards:number};now:string};
 const navAdmin=[{id:"overview",label:"Overview",icon:LayoutDashboard},{id:"live",label:"Live vehicle board",icon:Radio},{id:"visits",label:"Visit history",icon:ClipboardList},{id:"drivers",label:"Drivers",icon:Users},{id:"lorries",label:"Lorries",icon:Truck},{id:"companies",label:"Companies",icon:Building2},{id:"security_guards",label:"Security guards",icon:ShieldCheck},{id:"registrations",label:"Driver registrations",icon:ClipboardList},{id:"accounts",label:"User accounts",icon:ShieldCheck},{id:"attendance",label:"Attendance",icon:CalendarCheck},{id:"reports",label:"Reports",icon:BarChart3},{id:"audit",label:"Audit log",icon:ClipboardList},{id:"settings",label:"Site settings",icon:Settings2}];
+const navMonitor=[{id:"overview",label:"Overview",icon:LayoutDashboard},{id:"live",label:"Live vehicle board",icon:Radio},{id:"visits",label:"Visit history",icon:ClipboardList},{id:"reports",label:"Reports",icon:BarChart3}];
 const active=(v:AnyRow)=>!["COMPLETED","CANCELLED"].includes(v.status);
 const onPremises=(v:AnyRow)=>active(v)&&Boolean(v.company_time_in)&&v.status!=="LEAVING";
 const fmtTime=siteDateTime;
@@ -81,7 +83,7 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [connectionIssue]);
   useEffect(()=>{if(!pending)return;const timer=setInterval(()=>{api<Actor>("me").then(me=>{setActorInfo(me);setPending(null);}).catch(()=>{});},15000);return()=>clearInterval(timer);},[pending]);
-  useEffect(()=>{if(actorInfo?.role==="admin"||actorInfo?.role==="guard"){void refresh();const timer=setInterval(refresh,actorInfo.role==="admin"&&["attendance","live"].includes(section)?3000:10000);return()=>clearInterval(timer);}},[actorInfo,refresh,section]);
+  useEffect(()=>{if(actorInfo?.role==="admin"||actorInfo?.role==="monitor"||actorInfo?.role==="guard"){void refresh();const timer=setInterval(refresh,["admin","monitor"].includes(actorInfo.role)&&["attendance","live"].includes(section)?3000:10000);return()=>clearInterval(timer);}},[actorInfo,refresh,section]);
   useEffect(()=>{const timer=setInterval(()=>setTick(Date.now()),1000);if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(()=>{});return()=>clearInterval(timer);},[]);
   useEffect(()=>{if(["integrations","settings"].includes(new URLSearchParams(location.search).get("section")||""))setSection("settings");},[]);
   if(!configured) return <div className="setup-shell"><div className="brand"><div className="brand-symbol"><Truck size={24}/></div><div><strong>MKSS</strong><span>SYSTEM</span></div></div><div className="setup-card"><span className="eyebrow">INITIAL SETUP</span><h1>Connect your site.</h1><p>Set your Supabase project URL and publishable key in <code>.env.local</code>, then restart the app. Follow the setup steps in <code>README.md</code>.</p><div className="setup-code">NEXT_PUBLIC_SUPABASE_URL<br/>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</div></div></div>;
@@ -91,8 +93,17 @@ export default function Home() {
   if(!actorInfo) return <Login error={authError}/>;
   if(actorInfo.role==="driver") return <DriverHome actorInfo={actorInfo}/>;
   if(actorInfo.role==="guard") return <GuardHome actorInfo={actorInfo} overview={overview} refresh={refresh} tick={tick}/>;
-  const current=navAdmin.find(x=>x.id===section)||navAdmin[0];
+  const monitor=actorInfo.role==="monitor";
+  const navItems=monitor?navMonitor:navAdmin;
+  const currentSection=monitor&&!navMonitor.some(item=>item.id===section)?"overview":section;
+  const current=navItems.find(x=>x.id===currentSection)||navItems[0];
   const content=()=>{
+    if(monitor){
+      if(currentSection==="live") return <LivePage overview={overview} tick={tick}/>;
+      if(currentSection==="visits") return <MonitorHistory/>;
+      if(currentSection==="reports") return <ReportsPage overview={overview}/>;
+      return <OverviewPage overview={overview} tick={tick} onNavigate={setSection}/>;
+    }
     if(section==="overview") return <OverviewPage overview={overview} tick={tick} onNavigate={setSection}/>;
     if(section==="live") return <LivePage overview={overview} tick={tick}/>;
     if(section==="visits") return <HistoryPage overview={overview} refresh={refresh}/>;
@@ -105,7 +116,7 @@ export default function Home() {
     if(section==="integrations") return <SettingsPage/>;
     if(section==="settings") return <SettingsPage/>;
   };
-  return <div className="shell"><aside className={`sidebar ${sidebar?"open":""}`}><div className="brand"><div className="brand-symbol"><Truck size={24}/></div><div><strong>MKSS</strong><span>SYSTEM</span></div><button className="mobile-close icon-button" onClick={()=>setSidebar(false)}><X size={18}/></button></div><div className="workspace-chip"><span className="workspace-dot"/> OPERATIONS CENTER</div><nav>{navAdmin.map(item=><button key={item.id} className={`nav-item ${section===item.id?"selected":""}`} onClick={()=>{setSection(item.id);setSidebar(false)}}><item.icon size={19}/>{item.label}{item.id==="settings"&&!!overview?.syncPending&&<span className="nav-count">{overview.syncPending}</span>}</button>)}</nav><div className="sidebar-footer"><div className="sidebar-help"><ShieldCheck size={19}/><div><strong>Site operations</strong><span>Live oversight, always on.</span></div></div><button className="nav-item signout" onClick={()=>publicClient().auth.signOut()}><LogOut size={18}/> Sign out</button></div></aside><div className="main-wrap"><header className="topbar"><div className="row gap"><button className="icon-button mobile-menu" onClick={()=>setSidebar(true)} aria-label="Open menu"><Menu size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <strong>{current.label}</strong></span></div><div className="topbar-right"><span className="live-pill"><span/> LIVE</span><span className="top-date">{new Date(tick).toLocaleDateString("en-MY",{weekday:"short",day:"numeric",month:"long",year:"numeric"})}</span><div className="avatar">{actorInfo.name.slice(0,1).toUpperCase()}</div></div></header><main className="content">{loading&&<div className="notice"><Loader2 className="spin" size={16}/> Loading live data…</div>}<ErrorBox message={authError}/>{content()}</main></div></div>;
+  return <div className="shell"><aside className={`sidebar ${sidebar?"open":""}`}><div className="brand"><div className="brand-symbol"><Truck size={24}/></div><div><strong>MKSS</strong><span>SYSTEM</span></div><button className="mobile-close icon-button" onClick={()=>setSidebar(false)}><X size={18}/></button></div><div className="workspace-chip"><span className="workspace-dot"/> {monitor?"READ ONLY MONITOR":"OPERATIONS CENTER"}</div><nav>{navItems.map(item=><button key={item.id} className={`nav-item ${currentSection===item.id?"selected":""}`} onClick={()=>{setSection(item.id);setSidebar(false)}}><item.icon size={19}/>{item.label}{item.id==="settings"&&!!overview?.syncPending&&<span className="nav-count">{overview.syncPending}</span>}</button>)}</nav><div className="sidebar-footer"><div className="sidebar-help"><ShieldCheck size={19}/><div><strong>Site operations</strong><span>Live oversight, always on.</span></div></div><button className="nav-item signout" onClick={()=>publicClient().auth.signOut()}><LogOut size={18}/> Sign out</button></div></aside><div className="main-wrap"><header className="topbar"><div className="row gap"><button className="icon-button mobile-menu" onClick={()=>setSidebar(true)} aria-label="Open menu"><Menu size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <strong>{current.label}</strong></span></div><div className="topbar-right"><span className="live-pill"><span/> LIVE</span><span className="top-date">{new Date(tick).toLocaleDateString("en-MY",{weekday:"short",day:"numeric",month:"long",year:"numeric"})}</span><div className="avatar">{actorInfo.name.slice(0,1).toUpperCase()}</div></div></header><main className="content">{loading&&<div className="notice"><Loader2 className="spin" size={16}/> Loading live data…</div>}<ErrorBox message={authError}/>{content()}</main></div></div>;
 }
 
 

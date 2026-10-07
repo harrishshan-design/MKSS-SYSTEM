@@ -4,7 +4,7 @@ import { adminClient } from "@/lib/supabase";
 import { siteDate } from "@/lib/date";
 export async function GET(req: NextRequest) {
   try {
-    const who = await actor(req, ["admin", "guard"]); const db = adminClient();
+    const who = await actor(req, ["admin", "monitor", "guard"]); const db = adminClient();
     const today = siteDate();
     const detail="*,drivers(full_name),lorries(registration_number,vehicle_type),companies(name),security_guards(full_name)";
     const [todayVisits, activeVisits, attendance, queue, metrics, companyFence, guards] = await Promise.all([

@@ -1,4 +1,4 @@
-export type Role = "admin" | "guard" | "driver";
+export type Role = "admin" | "monitor" | "guard" | "driver";
 export type VisitStatus = "REGISTERED" | "ENTERING" | "ON_SITE" | "WAITING" | "LOADING_UNLOADING" | "LEAVING" | "COMPLETED" | "CANCELLED" | "DELAYED";
 export type Actor = { id: string; role: Role; name: string; driver_id: string | null; guard_id: string | null };
 export type Position = { latitude: number; longitude: number; accuracy: number; deviceId?: string; timestamp: string };
