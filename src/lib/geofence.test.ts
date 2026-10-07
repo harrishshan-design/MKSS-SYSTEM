@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateGeofences, insideFence, metersBetween } from "./geofence";
+import { delayedStatus, evaluateGeofences, insideFence, metersBetween } from "./geofence";
 import type { Fence, Position, Visit } from "./types";
 const company:Fence={id:"site",kind:"company",name:"Site",latitude:3.0,longitude:101.0,radius_meters:200,enabled:true};
 const loading:Fence={id:"zone",kind:"loading",name:"Loading",latitude:3.0,longitude:101.0,radius_meters:70,enabled:true};
@@ -17,5 +17,9 @@ describe("geofence transitions",()=>{
     const precise=evaluateGeofences(initial,position(101.002,"2026-09-29T00:03:01Z"),company,loading,30,200);
     expect(precise.events).toContain("COMPANY_EXIT_CONFIRMED");
     expect(precise.patch.status).toBe("COMPLETED");
+  });
+  it("preserves a pending exit when the delayed warning runs",()=>{
+    const pending=visit({company_time_in:"2026-09-29T00:01:00Z",exit_pending_at:"2026-09-29T00:03:00Z",status:"LEAVING"});
+    expect(delayedStatus(pending,15,new Date("2026-09-29T02:00:00Z").getTime())).toBeNull();
   });
 });

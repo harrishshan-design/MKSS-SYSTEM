@@ -11,8 +11,14 @@ const schemas = {
 };
 type Resource = keyof typeof schemas;
 function resource(value: string): Resource { if (!(value in schemas)) throw new ApiError(404,"Unknown resource"); return value as Resource; }
+function safeRecord(table: Resource, row: Record<string, unknown>) {
+  if (table !== "drivers") return row;
+  const { qr_token: _secret, ...safe } = row;
+  void _secret;
+  return safe;
+}
 export async function GET(req: NextRequest, context: { params: Promise<{resource:string}> }) {
-  try { await actor(req,["admin"]); const table = resource((await context.params).resource); const { data,error } = await adminClient().from(table).select("*").order("created_at",{ascending:false}).limit(500); if(error) throw error; return NextResponse.json(table==="drivers"?data?.map(row=>{const copy={...row};delete (copy as Record<string,unknown>).qr_token;return copy;}):data); }
+  try { await actor(req,["admin"]); const table = resource((await context.params).resource); const { data,error } = await adminClient().from(table).select("*").order("created_at",{ascending:false}).limit(500); if(error) throw error; return NextResponse.json(data?.map(row=>safeRecord(table,row))); }
   catch(error) { return fail(error); }
 }
 export async function POST(req: NextRequest, context: { params: Promise<{resource:string}> }) {
@@ -20,8 +26,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{resourc
     const who=await actor(req,["admin"]); const table=resource((await context.params).resource);
     const input=schemas[table].parse(await json(req));
     const {data,error}=await adminClient().from(table).insert(input as Record<string, unknown>).select().single(); if(error) throw error;
-    await audit(who,`${table.toUpperCase()}_CREATED`,table,data.id,null,data);
-    return NextResponse.json(data,{status:201});
+    const safe=safeRecord(table,data);
+    await audit(who,`${table.toUpperCase()}_CREATED`,table,data.id,null,safe);
+    return NextResponse.json(safe,{status:201});
   } catch(error) { return fail(error); }
 }
 export async function PATCH(req: NextRequest, context: { params: Promise<{resource:string}> }) {
@@ -30,8 +37,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{resour
     const body=await json(req); const id=z.uuid().parse(body.id); const {data:old,error:readError}=await adminClient().from(table).select("*").eq("id",id).single(); if(readError) throw readError;
     const changes=schemas[table].partial().parse(body);
     const {data,error}=await adminClient().from(table).update(changes).eq("id",id).select().single(); if(error) throw error;
-    await audit(who,`${table.toUpperCase()}_UPDATED`,table,id,old,data);
-    return NextResponse.json(data);
+    const safe=safeRecord(table,data);
+    await audit(who,`${table.toUpperCase()}_UPDATED`,table,id,safeRecord(table,old),safe);
+    return NextResponse.json(safe);
   } catch(error) { return fail(error); }
 }
 export async function DELETE(req: NextRequest, context: { params: Promise<{resource:string}> }) {
@@ -39,7 +47,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{resou
     const who=await actor(req,["admin"]); const table=resource((await context.params).resource); const id=z.uuid().parse((await json(req)).id);
     const {data:old,error:readError}=await adminClient().from(table).select("*").eq("id",id).single(); if(readError) throw readError;
     const {error}=await adminClient().from(table).update({active:false}).eq("id",id); if(error) throw error;
-    await audit(who,`${table.toUpperCase()}_DEACTIVATED`,table,id,old,{active:false});
+    await audit(who,`${table.toUpperCase()}_DEACTIVATED`,table,id,safeRecord(table,old),{active:false});
     return NextResponse.json({ok:true});
   } catch(error) { return fail(error); }
 }

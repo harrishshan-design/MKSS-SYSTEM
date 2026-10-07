@@ -45,6 +45,6 @@ export function evaluateGeofences(visit: Visit, position: Position, company: Fen
   return { patch, events };
 }
 export function delayedStatus(visit: Visit, maxMinutes: number, now = Date.now()): VisitStatus | null {
-  if (!visit.company_time_in || visit.company_time_out || visit.status === "CANCELLED" || visit.status === "COMPLETED") return null;
+  if (!visit.company_time_in || visit.company_time_out || visit.status === "CANCELLED" || visit.status === "COMPLETED" || visit.status === "LEAVING") return null;
   return now - new Date(visit.company_time_in).getTime() > maxMinutes * 60000 ? "DELAYED" : null;
 }
