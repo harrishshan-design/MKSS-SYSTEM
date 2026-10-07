@@ -26,11 +26,12 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
   const [data, setData] = useState<DriverData | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [watching, setWatching] = useState(false);
   const [checking, setChecking] = useState(false);
   const inFlight = useRef(false);
+  const activeVisitIdRef = useRef<string | undefined>(undefined);
   const activeVisit = data?.visits?.find(visit => !["COMPLETED", "CANCELLED"].includes(visit.status));
   const activeVisitId = activeVisit?.id;
+  useEffect(() => { activeVisitIdRef.current = activeVisitId; }, [activeVisitId]);
 
   const load = useCallback(async () => {
     try { setData(await api<DriverData>("driver")); }
@@ -38,14 +39,14 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
   }, []);
 
   useEffect(() => { void load(); const timer = setInterval(load, 15_000); return () => clearInterval(timer); }, [load]);
-  useEffect(() => { if (activeVisitId) setWatching(true); }, [activeVisitId]);
 
   const sendPosition = useCallback(async (position: GeolocationPosition) => {
-    if (!activeVisit?.id || inFlight.current) return;
+    const visitId = activeVisitIdRef.current;
+    if (!visitId || inFlight.current) return;
     inFlight.current = true;
     try {
       const result = await api<LocationResult>("location", { method: "POST", body: JSON.stringify({
-        visit_id: activeVisit.id,
+        visit_id: visitId,
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy,
@@ -65,30 +66,31 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
       const detail = cause instanceof Error ? cause.message : String(cause);
       if (!detail.includes("Stale location update")) setError(detail);
     } finally { inFlight.current = false; }
-  }, [activeVisit, load]);
+  }, [load]);
 
-  const checkNow = useCallback(() => {
+  const checkNow = useCallback((silent = false) => {
     if (!navigator.geolocation) { setError("This browser does not support location sharing."); return; }
-    setChecking(true);
-    setError("");
+    if (!silent) { setChecking(true); setError(""); }
     navigator.geolocation.getCurrentPosition(
-      position => { void sendPosition(position).finally(() => setChecking(false)); },
-      cause => { setError(`Location unavailable: ${cause.message}`); setChecking(false); },
+      position => { void sendPosition(position).finally(() => { if (!silent) setChecking(false); }); },
+      cause => { setError(`Location unavailable: ${cause.message}`); if (!silent) setChecking(false); },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 },
     );
   }, [sendPosition]);
 
   useEffect(() => {
-    if (!watching || !activeVisitId || !navigator.geolocation) return;
+    if (!activeVisitId || !navigator.geolocation) return;
     const watchId = navigator.geolocation.watchPosition(
       position => { void sendPosition(position); },
       cause => setError(`Location unavailable: ${cause.message}`),
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 },
     );
-    const onVisible = () => { if (document.visibilityState === "visible") checkNow(); };
+    const onVisible = () => { if (document.visibilityState === "visible") checkNow(true); };
     document.addEventListener("visibilitychange", onVisible);
-    return () => { navigator.geolocation.clearWatch(watchId); document.removeEventListener("visibilitychange", onVisible); };
-  }, [activeVisitId, watching, sendPosition, checkNow]);
+    onVisible();
+    const timer = setInterval(onVisible, 30_000);
+    return () => { navigator.geolocation.clearWatch(watchId); clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [activeVisitId, sendPosition, checkNow]);
 
   return <div className="driver-shell">
     <header className="mobile-top"><div className="brand light"><div className="brand-symbol"><Truck size={23}/></div><div><strong>MKSS</strong><span>DRIVER</span></div></div><button className="icon-button light-button" onClick={() => publicClient().auth.signOut()} aria-label="Sign out"><LogOut size={21}/></button></header>
@@ -107,11 +109,10 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
           <div className="section-heading"><h2>Active visit</h2><span className={`badge ${activeVisit.status.toLowerCase().replaceAll("_", "-")}`}>{activeVisit.status.replaceAll("_", " ")}</span></div>
           <strong>{activeVisit.visit_code}</strong>
           <p>Time out is saved when a fresh GPS reading confirms you are beyond 200 m from the site.</p>
-          <button className="button primary full" onClick={checkNow} disabled={checking}><MapPin size={18}/>{checking ? "Checking location…" : "Check location / time out"}</button>
-          <button className="button secondary full" onClick={() => setWatching(!watching)}><MapPin size={18}/>{watching ? "Stop automatic location" : "Start automatic location"}</button>
-          <small>Last accepted GPS: {siteClockTime(activeVisit.last_location_at)} · {watching ? "Automatic location on" : "Automatic location off"}</small>
+          <button className="button primary full" onClick={() => checkNow()} disabled={checking}><MapPin size={18}/>{checking ? "Checking location…" : "Check location / time out"}</button>
+          <small>Last accepted GPS: {siteClockTime(activeVisit.last_location_at)} · Automatic GPS runs while this page is open</small>
         </div>}
-        <div className="inline-hint"><Smartphone size={17}/> Phones can pause GPS when the browser is closed or in the background. Reopen this page and tap “Check location / time out” if your visit stays active. The recorded time is when GPS confirms your position.</div>
+        <div className="inline-hint"><Smartphone size={17}/> Keep this page open with location permission enabled until you leave. If the page closes or moves to the background, reopen it and tap “Check location / time out”. Time out is saved only when fresh GPS confirms you are beyond 200 m.</div>
       </> : <div className="center pad"><Loader2 className="spin"/></div>}
     </main>
   </div>;
