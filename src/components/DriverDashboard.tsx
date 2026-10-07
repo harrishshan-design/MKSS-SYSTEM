@@ -56,7 +56,7 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
       if (result.events.includes("COMPANY_EXIT_CONFIRMED")) {
         setMessage(`Checked out at ${siteClockTime(result.visit.company_time_out)}. Your visit is complete.`);
       } else if (result.events.includes("COMPANY_EXIT_PENDING")) {
-        setMessage("You have left the site. Time out will be recorded when fresh GPS confirms you are 5 km away.");
+        setMessage("You have left the site. Time out will be recorded when fresh GPS confirms you are beyond 200 m.");
       } else {
         setMessage(`Location received at ${siteClockTime(result.visit.last_location_at)}.`);
       }
@@ -104,7 +104,7 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
         {activeVisit && <div className="location-card">
           <div className="section-heading"><h2>Active visit</h2><span className={`badge ${activeVisit.status.toLowerCase().replaceAll("_", "-")}`}>{activeVisit.status.replaceAll("_", " ")}</span></div>
           <strong>{activeVisit.visit_code}</strong>
-          <p>Time out is saved when a fresh GPS reading confirms you are at least 5 km from the site.</p>
+          <p>Time out is saved when a fresh GPS reading confirms you are beyond 200 m from the site.</p>
           <button className="button primary full" onClick={checkNow} disabled={checking}><MapPin size={18}/>{checking ? "Checking location…" : "Check location / time out"}</button>
           <button className="button secondary full" onClick={() => setWatching(!watching)}><MapPin size={18}/>{watching ? "Stop automatic location" : "Start automatic location"}</button>
           <small>Last accepted GPS: {siteClockTime(activeVisit.last_location_at)} · {watching ? "Automatic location on" : "Automatic location off"}</small>
