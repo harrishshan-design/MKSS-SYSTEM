@@ -3,23 +3,22 @@ import { signup } from "./driver-registration";
 
 const valid = {
   email: "driver@example.com", password: "a-long-passphrase-123",
-  full_name: "Test Driver", phone: "+60123456789", licence_number: "D1234567",
-  requested_company: "Test Transport", requested_lorry: "abc 1234",
-  requested_vehicle_type: "Box lorry",
+  full_name: "Test Driver", phone: "+60123456789", identity_reference: "900101101234",
+  requested_company: "Test Transport", has_driving_licence: true, trip_type: "Hantar Barang",
 };
 
 describe("driver signup details", () => {
-  it("requires the driving licence, company, vehicle registration and type", () => {
-    for (const field of ["licence_number", "requested_company", "requested_lorry", "requested_vehicle_type"] as const) {
+  it("requires the six requested details and accepts either licence answer", () => {
+    for (const field of ["full_name", "identity_reference", "phone", "requested_company"] as const)
       expect(signup.safeParse({ ...valid, [field]: "" }).success).toBe(false);
-    }
+    expect(signup.safeParse({ ...valid, has_driving_licence: false }).success).toBe(true);
+    expect(signup.safeParse({ ...valid, has_driving_licence: "No" }).success).toBe(false);
+    expect(signup.safeParse({ ...valid, trip_type: "Other" }).success).toBe(false);
   });
 
-  it("normalizes the email and registration and accepts optional contact details", () => {
-    const result = signup.parse({ ...valid, email: "DRIVER@EXAMPLE.COM",
-      company_contact_person: "Dispatcher", company_phone: "+60122223333" });
+  it("normalizes the email and accepts the new form without vehicle details", () => {
+    const result = signup.parse({ ...valid, email: "DRIVER@EXAMPLE.COM" });
     expect(result.email).toBe("driver@example.com");
-    expect(result.requested_lorry).toBe("ABC 1234");
-    expect(result.company_contact_person).toBe("Dispatcher");
+    expect(result.trip_type).toBe("Hantar Barang");
   });
 });

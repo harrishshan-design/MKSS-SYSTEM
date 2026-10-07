@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = signup.parse(await json(req));
     const db = adminClient();
-    const { error: schemaError } = await db.from("driver_registration_requests").select("id").limit(0);
+    const { error: schemaError } = await db.from("driver_registration_requests").select("id,has_driving_licence,trip_type").limit(0);
     if (schemaError) throw new ApiError(503, "Driver sign-up is not ready. Ask the administrator to apply the database migrations.");
 
     const { data, error } = await db.auth.admin.createUser({
@@ -26,14 +26,10 @@ export async function POST(req: NextRequest) {
       email: body.email.toLowerCase(),
       full_name: body.full_name,
       phone: body.phone,
-      licence_number: body.licence_number,
-      identity_reference: body.identity_reference || null,
+      identity_reference: body.identity_reference,
       requested_company: body.requested_company,
-      company_contact_person: body.company_contact_person || null,
-      company_phone: body.company_phone || null,
-      company_email: body.company_email || null,
-      requested_lorry: body.requested_lorry,
-      requested_vehicle_type: body.requested_vehicle_type,
+      has_driving_licence: body.has_driving_licence,
+      trip_type: body.trip_type,
     });
     if (insertError) {
       await db.auth.admin.deleteUser(data.user.id);

@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     if (error && (error.name === "AuthRetryableFetchError" || (error.status ?? 0) >= 500)) throw new ApiError(503, "Sign-in service is temporarily unavailable. Please retry.");
     if (error || !data.user) throw new ApiError(401, "Session expired. Sign in again.");
     const { data: request, error: requestError } = await adminClient().from("driver_registration_requests")
-      .select("status,full_name,requested_company,requested_lorry,created_at")
+      .select("status,full_name,requested_company,trip_type,created_at")
       .eq("auth_user_id", data.user.id).maybeSingle();
     if (requestError) throw requestError;
     if (!request) throw new ApiError(404, "No registration request found for this account");

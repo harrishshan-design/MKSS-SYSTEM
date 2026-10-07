@@ -3,39 +3,26 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Check, Loader2, Pencil, RefreshCw } from "lucide-react";
 import { api } from "@/lib/client-api";
+import { siteDateTime } from "@/lib/date";
 
 type Request = {
-  id: string; email: string; full_name: string; phone: string; licence_number: string | null;
-  identity_reference: string | null; requested_company: string; company_contact_person: string | null;
-  company_phone: string | null; company_email: string | null; requested_lorry: string;
-  requested_vehicle_type: string | null; created_at: string;
+  id: string;
+  email: string;
+  full_name: string;
+  identity_reference: string;
+  phone: string;
+  requested_company: string;
+  has_driving_licence: boolean | null;
+  trip_type: "Hantar Barang" | "Ambil Barang" | null;
+  requested_lorry: string | null;
+  requested_vehicle_type: string | null;
+  created_at: string;
 };
-type DetailKey = Exclude<keyof Request, "id" | "created_at">;
-const details: { title: string; fields: { key: DetailKey; label: string; required?: boolean; type?: string }[] }[] = [
-  { title: "Driver", fields: [
-    { key: "full_name", label: "Driver full name", required: true },
-    { key: "email", label: "Email address", required: true, type: "email" },
-    { key: "phone", label: "Phone number", required: true, type: "tel" },
-    { key: "licence_number", label: "Driving licence number", required: true },
-    { key: "identity_reference", label: "IC / passport number" },
-  ] },
-  { title: "Transport company", fields: [
-    { key: "requested_company", label: "Transport company name", required: true },
-    { key: "company_contact_person", label: "Company contact person" },
-    { key: "company_phone", label: "Company phone", type: "tel" },
-    { key: "company_email", label: "Company email", type: "email" },
-  ] },
-  { title: "Vehicle", fields: [
-    { key: "requested_lorry", label: "Vehicle registration number", required: true },
-    { key: "requested_vehicle_type", label: "Vehicle type", required: true },
-  ] },
-];
 
 export default function RegistrationRequests() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [busy, setBusy] = useState(true);
   const [saving, setSaving] = useState("");
-  const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Request | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -43,7 +30,7 @@ export default function RegistrationRequests() {
   const refresh = useCallback(async () => {
     setBusy(true); setError("");
     try { setRequests(await api<Request[]>("signup/requests")); }
-    catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
@@ -53,11 +40,16 @@ export default function RegistrationRequests() {
     if (!draft) return;
     setSaving(draft.id); setError(""); setMessage("");
     try {
-      await api("signup/requests", { method: "PATCH", body: JSON.stringify(draft) });
-      setEditing(null); setDraft(null);
-      setMessage("Registration details saved. You can now approve the driver.");
+      await api("signup/requests", { method: "PATCH", body: JSON.stringify({
+        id: draft.id, email: draft.email, full_name: draft.full_name,
+        identity_reference: draft.identity_reference, phone: draft.phone,
+        requested_company: draft.requested_company,
+        has_driving_licence: draft.has_driving_licence, trip_type: draft.trip_type,
+      }) });
+      setDraft(null);
+      setMessage("Registration details saved.");
       await refresh();
-    } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setSaving(""); }
   }
 
@@ -65,24 +57,34 @@ export default function RegistrationRequests() {
     setSaving(request.id); setError(""); setMessage("");
     try {
       await api("signup/approve", { method: "POST", body: JSON.stringify({ request_id: request.id }) });
-      setMessage(`${request.full_name} can now sign in as a driver.`);
+      setMessage(`${request.full_name} can now sign in. Assign a lorry before the daily QR check-in.`);
       await refresh();
-    } catch (caught) { setError(caught instanceof Error ? caught.message : String(caught)); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setSaving(""); }
   }
 
   return <>
-    <div className="page-header"><div><span className="eyebrow">ACCESS MANAGEMENT</span><h1>Driver registrations</h1><p>Check or correct the submitted details, then approve the driver.</p></div><button className="button secondary" onClick={refresh} disabled={busy}><RefreshCw size={16}/> Refresh</button></div>
+    <div className="page-header"><div><span className="eyebrow">ACCESS MANAGEMENT</span><h1>Driver registrations</h1><p>Review the submitted details, approve the driver, then assign a lorry.</p></div><button className="button secondary" onClick={refresh} disabled={busy}><RefreshCw size={16}/> Refresh</button></div>
     {error && <div className="notice error">{error}</div>}
     {message && <div className="notice success"><Check size={17}/>{message}</div>}
     {busy && <div className="panel pad center"><Loader2 className="spin" size={22}/></div>}
     {!busy && requests.length === 0 && <div className="panel pad center"><h2>No pending registrations</h2><p className="muted">New driver requests will appear here.</p></div>}
     <div className="registration-list">{requests.map(request => <div className="panel registration-card" key={request.id}>
-      <div className="registration-summary"><div><span className="eyebrow">PENDING DRIVER</span><h2>{request.full_name}</h2><p>{request.email} · {request.phone}</p><p><strong>{request.requested_company}</strong> · {request.requested_lorry} · {request.requested_vehicle_type || "Vehicle type not supplied"}</p><p>Licence: {request.licence_number || "Not supplied"} {request.identity_reference && `· IC / passport: ${request.identity_reference}`}</p><p>Company contact: {[request.company_contact_person, request.company_phone, request.company_email].filter(Boolean).join(" · ") || "Not supplied"}</p></div><span className="muted">{new Date(request.created_at).toLocaleDateString("en-MY")}</span></div>
-      {editing === request.id && draft && <form className="registration-edit" onSubmit={save}>{details.map(group => <div className="registration-edit-group" key={group.title}><h3>{group.title}</h3><div className="registration-edit-grid">{group.fields.map(field => <label key={field.key}>{field.label}<input type={field.type || "text"} required={field.required} value={draft[field.key] || ""} onChange={event => setDraft(previous => previous ? { ...previous, [field.key]: event.target.value } : previous)}/></label>)}</div></div>)}<div className="registration-controls"><button className="button primary" disabled={!!saving}>{saving === request.id && <Loader2 className="spin" size={16}/>} Save corrections</button><button type="button" className="button secondary" onClick={() => { setEditing(null); setDraft(null); }}>Cancel</button></div></form>}
-      {editing !== request.id && <div className="registration-controls"><button className="button secondary" disabled={!!saving} onClick={() => { setEditing(request.id); setDraft(request); setError(""); }}><Pencil size={16}/> Edit details</button><button className="button primary" disabled={!!saving || !request.licence_number || !request.requested_vehicle_type} onClick={() => approve(request)}>{saving === request.id ? <Loader2 className="spin" size={16}/> : <ArrowRight size={16}/>} Approve driver</button></div>}
-      {(!request.licence_number || !request.requested_vehicle_type) && <p className="registration-help">Add the missing licence number and vehicle type to approve this request.</p>}
-      <p className="registration-help">Approval creates the company and vehicle if needed, then assigns this driver. Existing company and vehicle records are reused.</p>
+      <div className="registration-summary"><div><span className="eyebrow">PENDING DRIVER</span><h2>{request.full_name}</h2><p>{request.email} · {request.phone}</p><p><strong>{request.requested_company}</strong> · {request.trip_type || "Type not supplied"}</p><p>IC: {request.identity_reference || "Not supplied"} · Driving licence: {request.has_driving_licence === null ? "Not answered" : request.has_driving_licence ? "Yes" : "No"}</p>{request.requested_lorry && <p>Requested lorry: {request.requested_lorry} · {request.requested_vehicle_type || "Type not supplied"}</p>}</div><span className="muted">{siteDateTime(request.created_at)}</span></div>
+      {draft?.id === request.id ? <form className="registration-edit" onSubmit={save}>
+        <div className="registration-edit-grid">
+          <label>Name<input required minLength={2} maxLength={120} value={draft.full_name} onChange={event => setDraft({ ...draft, full_name: event.target.value })}/></label>
+          <label>Email address<input required type="email" value={draft.email} onChange={event => setDraft({ ...draft, email: event.target.value })}/></label>
+          <label>IC number<input required minLength={6} maxLength={30} value={draft.identity_reference || ""} onChange={event => setDraft({ ...draft, identity_reference: event.target.value })}/></label>
+          <label>Phone number<input required type="tel" value={draft.phone} onChange={event => setDraft({ ...draft, phone: event.target.value })}/></label>
+          <label>Company name<input required maxLength={120} value={draft.requested_company} onChange={event => setDraft({ ...draft, requested_company: event.target.value })}/></label>
+          <label>Driving licence<select required value={draft.has_driving_licence === null ? "" : draft.has_driving_licence ? "yes" : "no"} onChange={event => setDraft({ ...draft, has_driving_licence: event.target.value === "" ? null : event.target.value === "yes" })}><option value="">Select Yes or No</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+          <label>Type<select required value={draft.trip_type || ""} onChange={event => setDraft({ ...draft, trip_type: event.target.value as Request["trip_type"] })}><option value="">Select type</option><option value="Hantar Barang">Hantar Barang</option><option value="Ambil Barang">Ambil Barang</option></select></label>
+        </div>
+        <div className="registration-controls"><button className="button primary" disabled={!!saving}>{saving === request.id && <Loader2 className="spin" size={16}/>} Save corrections</button><button type="button" className="button secondary" onClick={() => setDraft(null)}>Cancel</button></div>
+      </form> : <div className="registration-controls"><button className="button secondary" disabled={!!saving} onClick={() => { setDraft(request); setError(""); }}><Pencil size={16}/> Edit details</button><button className="button primary" disabled={!!saving || request.has_driving_licence === null || !request.trip_type} onClick={() => approve(request)}>{saving === request.id ? <Loader2 className="spin" size={16}/> : <ArrowRight size={16}/>} Approve driver</button></div>}
+      {(request.has_driving_licence === null || !request.trip_type) && <p className="registration-help">Add the driving licence answer and type before approval.</p>}
+      <p className="registration-help">Approval creates the driver account. Assign a lorry in Lorries before their first daily QR check-in.</p>
     </div>)}</div>
   </>;
 }

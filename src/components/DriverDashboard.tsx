@@ -17,7 +17,7 @@ type DriverVisit = {
   company_time_out: string | null;
 };
 type DriverData = {
-  driver: { full_name: string; qr_token: string; companies?: { name: string } | null; lorries?: { registration_number: string }[] };
+  driver: { full_name: string; qr_token: string; default_trip_type: string | null; companies?: { name: string } | null; lorries?: { registration_number: string; active: boolean }[] };
   visits: DriverVisit[];
 };
 type LocationResult = { visit: DriverVisit; events: string[] };
@@ -99,8 +99,10 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
       {error && <div className="notice error">{error}</div>}
       {message && <div className="notice success"><Check size={18}/>{message}</div>}
       {data?.driver ? <>
-        <DriverCheckin onCheckedIn={load}/>
-        <div className="driver-pass"><div className="pass-header"><span>YOUR PERMANENT DRIVER PASS</span><Truck size={25}/></div><QRCodeView value={data.driver.qr_token} label={data.driver.full_name}/><div className="pass-bottom"><div><span>TRANSPORT COMPANY</span><strong>{data.driver.companies?.name || "—"}</strong></div><div><span>ASSIGNED LORRY</span><strong>{data.driver.lorries?.[0]?.registration_number || "—"}</strong></div></div></div>
+        {data.driver.lorries?.some(lorry => lorry.active)
+          ? <DriverCheckin onCheckedIn={load}/>
+          : <div className="notice">Your account is approved. Ask the admin to assign your lorry before scanning the daily QR.</div>}
+        <div className="driver-pass"><div className="pass-header"><span>YOUR PERMANENT DRIVER PASS</span><Truck size={25}/></div><QRCodeView value={data.driver.qr_token} label={data.driver.full_name}/><div className="pass-bottom"><div><span>TRANSPORT COMPANY</span><strong>{data.driver.companies?.name || "—"}</strong></div><div><span>ASSIGNED LORRY</span><strong>{data.driver.lorries?.find(lorry => lorry.active)?.registration_number || "—"}</strong></div><div><span>TYPE</span><strong>{data.driver.default_trip_type || "—"}</strong></div></div></div>
         {activeVisit && <div className="location-card">
           <div className="section-heading"><h2>Active visit</h2><span className={`badge ${activeVisit.status.toLowerCase().replaceAll("_", "-")}`}>{activeVisit.status.replaceAll("_", " ")}</span></div>
           <strong>{activeVisit.visit_code}</strong>

@@ -30,7 +30,7 @@ function Empty({title,description}:{title:string;description:string}) { return <
 
 export default function Home() {
   const configured=Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL&&process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
-  const [sessionReady,setSessionReady]=useState(false),[connectionIssue,setConnectionIssue]=useState(false),[retryIdentity,setRetryIdentity]=useState(0),[actorInfo,setActorInfo]=useState<Actor|null>(null),[pending,setPending]=useState<{status:"PENDING"|"APPROVED"|"REJECTED";full_name:string;requested_company:string;requested_lorry:string}|null>(null),[authError,setAuthError]=useState(""),[section,setSection]=useState("overview"),[overview,setOverview]=useState<Overview|null>(null),[loading,setLoading]=useState(true),[sidebar,setSidebar]=useState(false),[tick,setTick]=useState(0);
+  const [sessionReady,setSessionReady]=useState(false),[connectionIssue,setConnectionIssue]=useState(false),[retryIdentity,setRetryIdentity]=useState(0),[actorInfo,setActorInfo]=useState<Actor|null>(null),[pending,setPending]=useState<{status:"PENDING"|"APPROVED"|"REJECTED";full_name:string;requested_company:string;trip_type:"Hantar Barang"|"Ambil Barang"|null}|null>(null),[authError,setAuthError]=useState(""),[section,setSection]=useState("overview"),[overview,setOverview]=useState<Overview|null>(null),[loading,setLoading]=useState(true),[sidebar,setSidebar]=useState(false),[tick,setTick]=useState(0);
   const refresh=useCallback(async()=>{try { const data=await api<Overview>("overview"); setOverview(data); setAuthError(""); }catch(error){setAuthError(error instanceof Error?error.message:String(error));}finally{setLoading(false);}},[]);
   useEffect(() => {
     if (!configured) { setSessionReady(true); return; }
@@ -43,7 +43,7 @@ export default function Home() {
       } catch (error) {
         if (error instanceof ApiRequestError && error.status === 403) {
           try {
-            const request = await api<{status:"PENDING"|"APPROVED"|"REJECTED";full_name:string;requested_company:string;requested_lorry:string}>("signup/status");
+            const request = await api<{status:"PENDING"|"APPROVED"|"REJECTED";full_name:string;requested_company:string;trip_type:"Hantar Barang"|"Ambil Barang"|null}>("signup/status");
             if (mounted) { setPending(request); setActorInfo(null); setConnectionIssue(false); setAuthError(""); }
             return;
           } catch (statusError) { error = statusError; }

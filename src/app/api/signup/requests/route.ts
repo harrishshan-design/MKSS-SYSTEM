@@ -4,7 +4,7 @@ import { actor, ApiError, audit, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
 import { driverDetails } from "@/lib/driver-registration";
 
-const fields = "id,auth_user_id,email,full_name,phone,licence_number,identity_reference,requested_company,company_contact_person,company_phone,company_email,requested_lorry,requested_vehicle_type,status,created_at";
+const fields = "id,auth_user_id,email,full_name,phone,identity_reference,requested_company,has_driving_licence,trip_type,requested_lorry,requested_vehicle_type,status,created_at";
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,10 +32,8 @@ export async function PATCH(req: NextRequest) {
     }
     const { data: updated, error: updateError } = await db.from("driver_registration_requests").update({
       email: body.email, full_name: body.full_name, phone: body.phone,
-      licence_number: body.licence_number, identity_reference: body.identity_reference || null,
-      requested_company: body.requested_company, company_contact_person: body.company_contact_person || null,
-      company_phone: body.company_phone || null, company_email: body.company_email || null,
-      requested_lorry: body.requested_lorry, requested_vehicle_type: body.requested_vehicle_type,
+      identity_reference: body.identity_reference, requested_company: body.requested_company,
+      has_driving_licence: body.has_driving_licence, trip_type: body.trip_type,
     }).eq("id", body.id).eq("status", "PENDING").select(fields).maybeSingle();
     if (updateError || !updated) {
       if (changedEmail) {
@@ -45,8 +43,8 @@ export async function PATCH(req: NextRequest) {
       throw new ApiError(409, updateError?.message || "This registration was reviewed while you were editing");
     }
     await audit(who, "DRIVER_REGISTRATION_EDITED", "driver_registration_requests", body.id,
-      { email: previous.email, full_name: previous.full_name, phone: previous.phone, licence_number: previous.licence_number, identity_reference: previous.identity_reference, requested_company: previous.requested_company, company_contact_person: previous.company_contact_person, company_phone: previous.company_phone, company_email: previous.company_email, requested_lorry: previous.requested_lorry, requested_vehicle_type: previous.requested_vehicle_type },
-      { email: updated.email, full_name: updated.full_name, phone: updated.phone, licence_number: updated.licence_number, identity_reference: updated.identity_reference, requested_company: updated.requested_company, company_contact_person: updated.company_contact_person, company_phone: updated.company_phone, company_email: updated.company_email, requested_lorry: updated.requested_lorry, requested_vehicle_type: updated.requested_vehicle_type });
+      { email: previous.email, full_name: previous.full_name, phone: previous.phone, identity_reference: previous.identity_reference, requested_company: previous.requested_company, has_driving_licence: previous.has_driving_licence, trip_type: previous.trip_type },
+      { email: updated.email, full_name: updated.full_name, phone: updated.phone, identity_reference: updated.identity_reference, requested_company: updated.requested_company, has_driving_licence: updated.has_driving_licence, trip_type: updated.trip_type });
     return NextResponse.json(updated);
   } catch (error) { return fail(error); }
 }
