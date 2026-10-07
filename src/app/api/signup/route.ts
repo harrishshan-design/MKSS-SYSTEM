@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await db.auth.admin.createUser({
       email: body.email.toLowerCase(),
-      password: body.password,
+      password: body.identity_reference,
       email_confirm: true,
     });
     if (error) {

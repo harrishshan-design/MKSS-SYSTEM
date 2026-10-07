@@ -21,7 +21,7 @@ export function Login({ error }: { error: string }) {
   const [complete, setComplete] = useState(false);
   const [form, setForm] = useState({
     full_name: "", identity_reference: "", phone: "", requested_company: "", requested_lorry: "",
-    has_driving_licence: "", trip_type: "", confirm_password: "",
+    has_driving_licence: "", trip_type: "",
   });
 
   async function signIn(event: React.FormEvent) {
@@ -35,11 +35,10 @@ export function Login({ error }: { error: string }) {
 
   async function signUp(event: React.FormEvent) {
     event.preventDefault(); setMessage("");
-    if (password !== form.confirm_password) { setMessage("Passwords do not match."); return; }
     setBusy(true);
     try {
       const response = await fetch("/api/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        email, password, full_name: form.full_name, identity_reference: form.identity_reference,
+        email, full_name: form.full_name, identity_reference: form.identity_reference,
         phone: form.phone, requested_company: form.requested_company, requested_lorry: form.requested_lorry,
         has_driving_licence: form.has_driving_licence === "yes", trip_type: form.trip_type,
       }) });
@@ -47,7 +46,6 @@ export function Login({ error }: { error: string }) {
       if (!response.ok) throw new Error(result.error || "Could not submit registration");
       setComplete(true);
       setPassword("");
-      setForm(previous => ({ ...previous, confirm_password: "" }));
     } catch (cause) { setMessage(cause instanceof Error ? cause.message : String(cause)); }
     finally { setBusy(false); }
   }
@@ -56,22 +54,18 @@ export function Login({ error }: { error: string }) {
   return <div className="login-shell">
     <div className="login-side"><div className="brand light"><div className="brand-symbol"><Truck size={24}/></div><div><strong>MKSS</strong><span>SYSTEM</span></div></div><div className="login-side-content"><div className="eyebrow light-text">SMARTER SITE MOVEMENT</div><h1>Every vehicle.<br/>Every movement.<br/><em>In full view.</em></h1><p>One clear system for lorry arrivals, guard attendance and automatic site records.</p><div className="login-stat"><Radio size={18}/> Live operations, connected across your site</div></div><div className="login-side-foot">MKSS SYSTEM · Operations platform</div></div>
     <div className="login-panel"><div className="login-form"><div className="mobile-login-brand"><Truck size={25}/> MKSS SYSTEM</div>
-      {complete ? <><span className="eyebrow">REQUEST RECEIVED</span><h2>Waiting for admin approval</h2><p>Your registration is with the administrator. No email confirmation is needed. Sign in with your password to check its status.</p><button className="button secondary full" onClick={() => { setMode("signin"); setComplete(false); }}>Back to sign in <ArrowRight size={16}/></button></>
-      : mode === "signin" ? <><span className="eyebrow">WELCOME BACK</span><h2>Sign in to your workspace</h2><p>Use your account or create a driver account below.</p><form onSubmit={signIn}><label>Email address<input type="email" autoComplete="email" required value={email} onChange={event => setEmail(event.target.value)} placeholder="you@company.com"/></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password"/></label>{(message || error) && <div className="notice error">{message || error}</div>}<button className="button primary full login-button" disabled={busy}>{busy && <Loader2 className="spin" size={18}/>}Sign in <ArrowRight size={18}/></button></form><button className="auth-switch" onClick={() => { setMode("signup"); setMessage(""); }}>New driver? Create an account <ArrowRight size={16}/></button><div className="login-note"><ShieldCheck size={17}/> Admin and guard access is assigned by your site administrator</div></>
+      {complete ? <><span className="eyebrow">REQUEST RECEIVED</span><h2>Waiting for admin approval</h2><p>Your registration is with the administrator. No email confirmation is needed. Sign in with your email and IC number to check its status.</p><button className="button secondary full" onClick={() => { setMode("signin"); setComplete(false); }}>Back to sign in <ArrowRight size={16}/></button></>
+      : mode === "signin" ? <><span className="eyebrow">WELCOME BACK</span><h2>Sign in to your workspace</h2><p>Drivers use their email and IC number to sign in.</p><form onSubmit={signIn}><label>Email address<input type="email" autoComplete="email" required value={email} onChange={event => setEmail(event.target.value)} placeholder="you@company.com"/></label><label>Password (IC number for drivers)<input type="password" autoComplete="current-password" required value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password"/></label>{(message || error) && <div className="notice error">{message || error}</div>}<button className="button primary full login-button" disabled={busy}>{busy && <Loader2 className="spin" size={18}/>}Sign in <ArrowRight size={18}/></button></form><button className="auth-switch" onClick={() => { setMode("signup"); setMessage(""); }}>New driver? Create an account <ArrowRight size={16}/></button><div className="login-note"><ShieldCheck size={17}/> Admin and guard access is assigned by your site administrator</div></>
       : <><button className="auth-back" onClick={() => { setMode("signin"); setMessage(""); }}><ArrowLeft size={16}/> Back to sign in</button><span className="eyebrow">DRIVER REGISTRATION</span><h2>Create a driver account</h2><p>Enter these details once. An administrator will review and approve your account.</p><form onSubmit={signUp} className="signup-form">
         <div className="signup-group"><strong>Driver details</strong>
           <label>Name<input required autoComplete="name" maxLength={120} value={form.full_name} onChange={update("full_name")}/></label>
-          <label>IC number<input required minLength={6} maxLength={30} value={form.identity_reference} onChange={update("identity_reference")}/></label>
+          <label>IC number (your password)<input required minLength={6} maxLength={30} value={form.identity_reference} onChange={update("identity_reference")}/><small>Enter this same IC number to sign in.</small></label>
+          <label>Email address<input required type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)}/></label>
           <label>Phone number<input required type="tel" autoComplete="tel" value={form.phone} onChange={update("phone")}/></label>
           <label>Company name<input required maxLength={120} value={form.requested_company} onChange={update("requested_company")}/></label>
           <label>Vehicle number<input required minLength={2} maxLength={40} autoCapitalize="characters" value={form.requested_lorry} onChange={update("requested_lorry")} placeholder="e.g. BPK 1234"/></label>
           <label>Driving license<select required value={form.has_driving_licence} onChange={update("has_driving_licence")}><option value="">Select Yes or No</option><option value="yes">Yes</option><option value="no">No</option></select></label>
           <label>Type<select required value={form.trip_type} onChange={update("trip_type")}><option value="">Select type</option><option value="Hantar Barang">Hantar Barang</option><option value="Ambil Barang">Ambil Barang</option></select></label>
-        </div>
-        <div className="signup-group"><strong>Login details</strong>
-          <label>Email address<input required type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)}/></label>
-          <label>Password<input required type="password" minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} placeholder="At least 12 characters"/></label>
-          <label>Confirm password<input required type="password" minLength={12} autoComplete="new-password" value={form.confirm_password} onChange={update("confirm_password")}/></label>
         </div>
         {message && <div className="notice error">{message}</div>}
         <button className="button primary full login-button" disabled={busy}>{busy && <Loader2 className="spin" size={18}/>}Request driver access <ArrowRight size={18}/></button>

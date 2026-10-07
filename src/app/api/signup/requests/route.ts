@@ -26,8 +26,12 @@ export async function PATCH(req: NextRequest) {
       .select(fields).eq("id", body.id).eq("status", "PENDING").single();
     if (readError || !previous) throw new ApiError(409, "This registration is no longer pending");
     const changedEmail = body.email !== previous.email;
-    if (changedEmail) {
-      const { error } = await db.auth.admin.updateUserById(previous.auth_user_id, { email: body.email, email_confirm: true });
+    const changedIc = Boolean(previous.identity_reference && body.identity_reference !== previous.identity_reference);
+    if (changedEmail || changedIc) {
+      const { error } = await db.auth.admin.updateUserById(previous.auth_user_id, {
+        ...(changedEmail ? { email: body.email, email_confirm: true } : {}),
+        ...(changedIc ? { password: body.identity_reference } : {}),
+      });
       if (error) throw new ApiError(409, error.message);
     }
     const { data: updated, error: updateError } = await db.from("driver_registration_requests").update({
@@ -37,8 +41,11 @@ export async function PATCH(req: NextRequest) {
       has_driving_licence: body.has_driving_licence, trip_type: body.trip_type,
     }).eq("id", body.id).eq("status", "PENDING").select(fields).maybeSingle();
     if (updateError || !updated) {
-      if (changedEmail) {
-        const { error: rollbackError } = await db.auth.admin.updateUserById(previous.auth_user_id, { email: previous.email, email_confirm: true });
+      if (changedEmail || changedIc) {
+        const { error: rollbackError } = await db.auth.admin.updateUserById(previous.auth_user_id, {
+          ...(changedEmail ? { email: previous.email, email_confirm: true } : {}),
+          ...(changedIc ? { password: previous.identity_reference } : {}),
+        });
         if (rollbackError) console.error("Registration email rollback failed", rollbackError);
       }
       throw new ApiError(409, updateError?.message || "This registration was reviewed while you were editing");

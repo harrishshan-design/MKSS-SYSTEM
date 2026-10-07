@@ -11,4 +11,4 @@ export const driverDetails = z.object({
   trip_type: z.enum(["Hantar Barang", "Ambil Barang"]),
 });
 
-export const signup = driverDetails.extend({ password: z.string().min(12).max(128) });
+export const signup = driverDetails;

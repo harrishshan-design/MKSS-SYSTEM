@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { signup } from "./driver-registration";
 
 const valid = {
-  email: "driver@example.com", password: "a-long-passphrase-123",
+  email: "driver@example.com",
   full_name: "Test Driver", phone: "+60123456789", identity_reference: "900101101234",
   requested_company: "Test Transport", requested_lorry: "BPK 1234", has_driving_licence: true, trip_type: "Hantar Barang",
 };
@@ -21,5 +21,10 @@ describe("driver signup details", () => {
     expect(result.email).toBe("driver@example.com");
     expect(result.requested_lorry).toBe("BPK 1234");
     expect(result.trip_type).toBe("Hantar Barang");
+  });
+
+  it("requires a valid IC number, which becomes the initial password", () => {
+    expect(signup.safeParse({ ...valid, identity_reference: "12345" }).success).toBe(false);
+    expect(signup.safeParse({ ...valid, identity_reference: "900101101234" }).success).toBe(true);
   });
 });
