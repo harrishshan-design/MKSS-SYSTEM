@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { adminClient, publicClient } from "@/lib/supabase";
 import type { Actor, Role } from "@/lib/types";
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 export function fail(error: unknown) {
-  const status = error instanceof ApiError ? error.status : 500;
-  const message = error instanceof Error ? error.message : "Unexpected error";
+  const status = error instanceof ApiError ? error.status : error instanceof ZodError ? 400 : 500;
+  const firstIssue = error instanceof ZodError ? error.issues[0] : null;
+  const field = firstIssue?.path.join(".");
+  const label = field === "requested_lorry" ? "vehicle number" : field?.replaceAll("_", " ");
+  const message = error instanceof ZodError
+    ? `${label ? `${label}: ` : ""}${firstIssue?.code === "invalid_type" ? "required" : firstIssue?.message || "Invalid input"}`
+    : error instanceof Error ? error.message : "Unexpected error";
   if (status === 500) console.error(error);
   return NextResponse.json({ error: message }, { status });
 }
