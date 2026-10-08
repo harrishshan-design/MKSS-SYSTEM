@@ -5,13 +5,14 @@ const secret = "b4825364-3ce9-4598-9635-81019adcc892";
 const driverId = "71f6eb92-046c-4d33-ae4c-e393358234bb";
 const at = Date.UTC(2026, 9, 8, 1, 0, 0);
 
-describe("short-lived QR challenges", () => {
-  it("accepts the current and previous 30-second window, then expires", () => {
-    const code = dailyCode("2026-10-08", secret, at);
-    expect(verifyDailyCode(code, "2026-10-08", secret, at + 45_000)).toBe(true);
-    expect(verifyDailyCode(code, "2026-10-08", secret, at + 60_000)).toBe(false);
-    expect(verifyDailyCode(code, "2026-10-09", secret, at)).toBe(false);
-    expect(verifyDailyCode(code, "2026-10-08", "wrong", at)).toBe(false);
+describe("daily attendance and rotating driver QR challenges", () => {
+  it("uses one attendance code for the day and rejects it on the next day", () => {
+    const code = dailyCode("2026-10-08", secret);
+    expect(dailyCode("2026-10-08", secret)).toBe(code);
+    expect(verifyDailyCode(code, "2026-10-08", secret)).toBe(true);
+    expect(verifyDailyCode(code, "2026-10-09", secret)).toBe(false);
+    expect(verifyDailyCode(code, "2026-10-08", "wrong")).toBe(false);
+    expect(dailyCode("2026-10-09", secret)).not.toBe(code);
   });
 
   it("ties a pass to its driver and rejects tampering", () => {
