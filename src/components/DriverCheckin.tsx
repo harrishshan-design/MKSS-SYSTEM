@@ -7,8 +7,13 @@ import { api } from "@/lib/client-api";
 import { siteClockTime, siteDate } from "@/lib/date";
 
 type Checkin = { id: string; created_at: string; new_value: { site: string; lorry: string } };
+type Trip = { id: string; visit_code: string; company_time_in: string | null;
+  company_time_out: string | null; checkout_method: string | null };
 
-export default function DriverCheckin({ onCheckedIn }: { onCheckedIn?: () => void }) {
+export default function DriverCheckin({ onCheckedIn, tripCount, checkoutCount, trips, activeVisit, unverifiedTimeout }: {
+  onCheckedIn?: () => void | Promise<void>; tripCount: number; checkoutCount: number; trips: Trip[];
+  activeVisit: boolean; unverifiedTimeout: boolean;
+}) {
   const [checkin, setCheckin] = useState<Checkin | null>(null);
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(true);
@@ -41,25 +46,27 @@ export default function DriverCheckin({ onCheckedIn }: { onCheckedIn?: () => voi
         method: "POST", body: JSON.stringify({ token }),
       });
       setCheckin(result.checkin);
-      onCheckedIn?.();
+      await onCheckedIn?.();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally { setBusy(false); }
   }, [onCheckedIn]);
 
   return <section className="driver-checkin">
-    <span className="eyebrow">DAILY SITE CHECK-IN</span>
+    <span className="eyebrow">DAILY ATTENDANCE &amp; TRIPS</span>
     {checkin ? <div className="driver-checkin-done">
       <Check size={26}/>
-      <div><strong>Checked in today</strong><span>{checkin.new_value.site} · {checkin.new_value.lorry} · {siteClockTime(checkin.created_at)}</span><small>QR attendance saved. Location was not required.</small></div>
-    </div> : <>
-      <h2>Scan today&apos;s site QR</h2>
-      <p>Scan once at the gate. Your attendance and assigned lorry visit are saved immediately, even if phone location is off.</p>
-      <button className="scan-hero driver-scan" onClick={() => setScanning(true)} disabled={busy}>
+      <div><strong>Attendance recorded today</strong><span>{checkin.new_value.site} · {checkin.new_value.lorry} · {siteClockTime(checkin.created_at)}</span><small>Location was not required. Scan again after each confirmed checkout.</small></div>
+    </div> : <><h2>Scan today&apos;s site QR</h2><p>Your first scan saves attendance and opens a trip immediately, even if phone location is off.</p></>}
+    <div className="driver-trip-summary"><div><strong>{tripCount}</strong><span>Trips checked in today</span></div><div><strong>{checkoutCount}</strong><span>Trips checked out today</span></div></div>
+    {activeVisit && checkin ? <div className="notice">A trip is open. Check out before scanning for another trip.</div>
+      : unverifiedTimeout ? <div className="notice">The last trip timed out. Ask security to confirm the physical exit before scanning again.</div>
+      : <button className="scan-hero driver-scan" onClick={() => setScanning(true)} disabled={busy}>
         <span className="scan-icon">{busy ? <Loader2 className="spin" size={30}/> : <QrCode size={36}/>}</span>
-        <span><strong>SCAN DAILY QR</strong><small>One scan for today&apos;s check-in</small></span>
-      </button>
-    </>}
+        <span><strong>{checkin ? `SCAN FOR TRIP ${tripCount + 1}` : "SCAN DAILY QR"}</strong><small>{checkin ? "Same daily QR · new trip record" : activeVisit ? "Record attendance for your open trip" : `Attendance and trip ${tripCount + 1}`}</small></span>
+      </button>}
+    {trips.length > 0 && <div className="driver-trip-list"><strong>Today&apos;s trips</strong>{trips.slice(0, 4).map((trip, index) =>
+      <div key={trip.id}><span>Trip {tripCount - index} · {trip.visit_code}</span><small>In {siteClockTime(trip.company_time_in)} · {trip.company_time_out ? `${trip.checkout_method === "TIME_LIMIT" ? "Timed out, exit unverified" : "Out"} ${siteClockTime(trip.company_time_out)}` : "Still in"}</small></div>)}</div>}
     {error && <div className="notice error">{error}</div>}
     {scanning && <Scanner title="Scan today's site QR" onScan={onScan} onClose={() => setScanning(false)}/>}
   </section>;

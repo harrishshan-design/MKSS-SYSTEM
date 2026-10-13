@@ -5,13 +5,14 @@ import { Check, Loader2, LogOut, MapPin, Smartphone, Truck } from "lucide-react"
 import DriverCheckin from "@/components/DriverCheckin";
 import QRCodeView from "@/components/QRCode";
 import { api } from "@/lib/client-api";
-import { siteClockTime } from "@/lib/date";
+import { siteClockTime, siteDate } from "@/lib/date";
 import { publicClient } from "@/lib/supabase";
 import type { Actor } from "@/lib/types";
 
 type DriverVisit = {
   id: string;
   visit_code: string;
+  visit_date: string;
   status: string;
   security_registered_at: string;
   company_time_in: string | null;
@@ -26,6 +27,8 @@ type DriverVisit = {
 type DriverData = {
   driver: { full_name: string; pass_code: string | null; default_trip_type: string | null; companies?: { name: string } | null; lorries?: { registration_number: string; active: boolean }[] };
   visits: DriverVisit[];
+  todayTripCount: number;
+  todayCheckoutCount: number;
 };
 type LocationResult = { visit: DriverVisit; events: string[] };
 
@@ -41,6 +44,7 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
   const activeVisit = data?.visits?.find(visit => !["COMPLETED", "CANCELLED"].includes(visit.status));
   const activeVisitId = activeVisit?.id;
   const latestVisit = data?.visits?.[0];
+  const todayTrips = data?.visits?.filter(visit => visit.visit_date === siteDate() && visit.company_time_in) || [];
   useEffect(() => { activeVisitIdRef.current = activeVisitId; }, [activeVisitId]);
 
   const load = useCallback(async () => {
@@ -114,7 +118,9 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
       {message && <div className="notice success"><Check size={18}/>{message}</div>}
       {data?.driver ? <>
         {data.driver.lorries?.some(lorry => lorry.active)
-          ? <DriverCheckin onCheckedIn={load}/>
+          ? <DriverCheckin onCheckedIn={load} tripCount={data.todayTripCount} checkoutCount={data.todayCheckoutCount}
+              trips={todayTrips} activeVisit={Boolean(activeVisit)}
+              unverifiedTimeout={latestVisit?.status === "COMPLETED" && latestVisit.checkout_method === "TIME_LIMIT"}/>
           : <div className="notice">Your account is approved. Ask the admin to assign your lorry before scanning the daily QR.</div>}
         <div className="driver-pass"><div className="pass-header"><span>YOUR ROTATING DRIVER PASS</span><Truck size={25}/></div>{data.driver.pass_code?<QRCodeView value={data.driver.pass_code} label={data.driver.full_name} secure/>:<p>This driver pass is inactive. Ask an admin to reactivate it.</p>}<div className="pass-bottom"><div><span>TRANSPORT COMPANY</span><strong>{data.driver.companies?.name || "—"}</strong></div><div><span>ASSIGNED LORRY</span><strong>{data.driver.lorries?.find(lorry => lorry.active)?.registration_number || "—"}</strong></div><div><span>TYPE</span><strong>{data.driver.default_trip_type || "—"}</strong></div></div></div>
         {latestVisit && <div className="location-card"><div className="section-heading"><h2>Latest trip · {latestVisit.visit_code}</h2><span className={`badge ${latestVisit.status.toLowerCase().replaceAll("_", "-")}`}>{latestVisit.status.replaceAll("_", " ")}</span></div><div className="trip-steps">{[["Arrival registered",latestVisit.security_registered_at],["Gate entry",latestVisit.company_time_in],["Loading started",latestVisit.loading_area_in],["Loading finished",latestVisit.loading_area_out],[latestVisit.checkout_method==="TIME_LIMIT"?"Timed out (exit unverified)":"Site exit",latestVisit.company_time_out]].map(([label,time])=><div key={label} className={time?"done":"pending"}><span>{label}</span><strong>{time?siteClockTime(time):"Pending"}</strong></div>)}</div>{latestVisit.checkout_method==="TIME_LIMIT"&&<div className="notice">The trip timer ended. Security must still confirm the lorry physically exited.</div>}</div>}

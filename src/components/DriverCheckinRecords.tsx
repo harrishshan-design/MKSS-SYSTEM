@@ -7,7 +7,7 @@ import { siteDate, siteDateTime } from "@/lib/date";
 
 type Checkin = { id: string; created_at: string; new_value: {
   date: string; site: string; driver: string; company: string; lorry: string;
-} };
+}; trip_count: number; checkout_count: number };
 const csvCell = (value: unknown) => {
   const text = String(value ?? "");
   const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
@@ -43,9 +43,9 @@ export default function DriverCheckinRecords() {
   }, [load]);
 
   function download() {
-    const lines = [["Date", "Time", "Driver", "Company", "Lorry", "Site"],
+    const lines = [["Date", "Attendance time", "Driver", "Company", "Lorry", "Site", "Trips in", "Trips out"],
       ...rows.map(row => [row.new_value.date, row.created_at, row.new_value.driver,
-        row.new_value.company, row.new_value.lorry, row.new_value.site])];
+        row.new_value.company, row.new_value.lorry, row.new_value.site, row.trip_count, row.checkout_count])];
     const blob = new Blob(["\uFEFF", lines.map(line => line.map(csvCell).join(",")).join("\r\n")],
       { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -58,7 +58,7 @@ export default function DriverCheckinRecords() {
   }
 
   return <div className="panel driver-records">
-    <div className="panel-head"><div><span className="eyebrow">DRIVER ACTIVITY</span><h2>Daily QR check-ins</h2></div><strong>{rows.length}</strong></div>
+    <div className="panel-head"><div><span className="eyebrow">DRIVER ACTIVITY</span><h2>Daily QR attendance and trips</h2></div><strong>{rows.length} drivers</strong></div>
     <div className="driver-record-controls">
       <label>From<input type="date" value={from} onChange={event => setFrom(event.target.value)}/></label>
       <label>To<input type="date" value={to} onChange={event => setTo(event.target.value)}/></label>
@@ -66,9 +66,9 @@ export default function DriverCheckinRecords() {
       <button className="button primary" onClick={download} disabled={!rows.length || loading || truncated}><Download size={16}/> Export CSV</button>
     </div>
     {error && <div className="notice error">{error}</div>}
-    {truncated && <div className="notice error">More than 5,000 check-ins match this range. Narrow the dates before exporting.</div>}
-    {rows.length ? <div className="table-scroll"><table><thead><tr><th>Time</th><th>Driver</th><th>Company</th><th>Lorry</th><th>Site</th></tr></thead><tbody>
-      {rows.map(row => <tr key={row.id}><td>{siteDateTime(row.created_at)}</td><td>{row.new_value.driver}</td><td>{row.new_value.company}</td><td>{row.new_value.lorry}</td><td>{row.new_value.site}</td></tr>)}
+    {truncated && <div className="notice error">More than 5,000 records match this range. Narrow the dates before exporting.</div>}
+    {rows.length ? <div className="table-scroll"><table><thead><tr><th>Attendance time</th><th>Driver</th><th>Company</th><th>Lorry</th><th>Site</th><th>Trips in</th><th>Trips out</th></tr></thead><tbody>
+      {rows.map(row => <tr key={row.id}><td>{siteDateTime(row.created_at)}</td><td>{row.new_value.driver}</td><td>{row.new_value.company}</td><td>{row.new_value.lorry}</td><td>{row.new_value.site}</td><td>{row.trip_count}</td><td>{row.checkout_count}</td></tr>)}
     </tbody></table></div> : <p className="muted">No driver check-ins in this date range.</p>}
   </div>;
 }
