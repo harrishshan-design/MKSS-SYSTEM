@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       db.from("audit_logs").select("id,entity_id,created_at,new_value")
         .eq("action", action).gte("created_at", start).lt("created_at", end)
         .order("created_at", { ascending: false }).limit(5001),
-      db.from("visits").select("driver_id,visit_date,company_time_in,company_time_out")
+      db.from("visits").select("driver_id,visit_date,company_time_in,company_time_out,checkout_method")
         .gte("visit_date", from).lte("visit_date", to)
         .order("created_at", { ascending: false }).limit(5001),
     ]);
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       const key = `${visit.driver_id}:${visit.visit_date}`;
       const count = counts.get(key) || { trip_count: 0, checkout_count: 0 };
       if (visit.company_time_in) count.trip_count++;
-      if (visit.company_time_out) count.checkout_count++;
+      if (visit.company_time_out && visit.checkout_method !== "TIME_LIMIT") count.checkout_count++;
       counts.set(key, count);
     }
     const rows = (data || []).slice(0, 5000).map(row => ({
