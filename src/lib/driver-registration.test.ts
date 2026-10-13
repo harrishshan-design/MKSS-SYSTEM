@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { signup } from "./driver-registration";
+import { signup, vehicleLoginKey } from "./driver-registration";
 
 const valid = {
   email: "driver@example.com",
@@ -27,5 +27,12 @@ describe("driver signup details", () => {
   it("requires a valid IC number, which becomes the initial password", () => {
     expect(signup.safeParse({ ...valid, identity_reference: "12345" }).success).toBe(false);
     expect(signup.safeParse({ ...valid, identity_reference: "900101101234" }).success).toBe(true);
+  });
+
+  it("accepts drivers without email and normalizes their vehicle login", () => {
+    expect(signup.parse({ ...valid, email: "" }).email).toBeNull();
+    expect(signup.parse({ ...valid, email: undefined }).email).toBeNull();
+    expect(signup.safeParse({ ...valid, email: "invalid" }).success).toBe(false);
+    expect(vehicleLoginKey("bpk-1234")).toBe(vehicleLoginKey("BPK 1234"));
   });
 });

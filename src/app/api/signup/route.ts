@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ApiError, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
-import { signup } from "@/lib/driver-registration";
+import { signup, internalDriverEmail, vehicleLoginKey } from "@/lib/driver-registration";
+import { randomUUID } from "node:crypto";
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,8 +11,12 @@ export async function POST(req: NextRequest) {
     const { error: schemaError } = await db.from("driver_registration_requests").select("id,has_driving_licence,trip_type").limit(0);
     if (schemaError) throw new ApiError(503, "Driver sign-up is not ready. Ask the administrator to apply the database migrations.");
 
+    const { data: matches, error: lookupError } = await db.rpc("driver_vehicle_login_candidates", { p_vehicle: vehicleLoginKey(body.requested_lorry) });
+    if (lookupError) throw new ApiError(503, "Driver sign-up is not ready. Ask the administrator to apply the database migrations.");
+    if (matches?.length) throw new ApiError(409, "This vehicle already has a driver account or pending request. Ask the administrator to review it.");
+
     const { data, error } = await db.auth.admin.createUser({
-      email: body.email.toLowerCase(),
+      email: body.email || internalDriverEmail(randomUUID()),
       password: body.identity_reference,
       email_confirm: true,
     });
@@ -23,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     const { error: insertError } = await db.from("driver_registration_requests").insert({
       auth_user_id: data.user.id,
-      email: body.email.toLowerCase(),
+      email: body.email,
       full_name: body.full_name,
       phone: body.phone,
       identity_reference: body.identity_reference,

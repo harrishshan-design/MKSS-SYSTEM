@@ -33,8 +33,10 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
   const [data, setData] = useState<DriverData | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [locationNotice, setLocationNotice] = useState("");
   const [checking, setChecking] = useState(false);
   const inFlight = useRef(false);
+  const locationDenied = useRef(false);
   const activeVisitIdRef = useRef<string | undefined>(undefined);
   const activeVisit = data?.visits?.find(visit => !["COMPLETED", "CANCELLED"].includes(visit.status));
   const activeVisitId = activeVisit?.id;
@@ -77,11 +79,12 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
   }, [load]);
 
   const checkNow = useCallback((silent = false) => {
-    if (!navigator.geolocation) { setError("This browser does not support location sharing."); return; }
-    if (!silent) { setChecking(true); setError(""); }
+    if (silent && locationDenied.current) return;
+    if (!navigator.geolocation) { setLocationNotice("Location is unavailable. Your QR attendance and timed checkout still work."); return; }
+    if (!silent) { locationDenied.current = false; setChecking(true); setLocationNotice(""); }
     navigator.geolocation.getCurrentPosition(
       position => { void sendPosition(position).finally(() => { if (!silent) setChecking(false); }); },
-      cause => { setError(`Location unavailable: ${cause.message}`); if (!silent) setChecking(false); },
+      cause => { if (cause.code === 1) locationDenied.current = true; setLocationNotice("Location is unavailable. Your QR attendance is saved; the trip timer will still run. Security can verify your physical exit."); if (!silent) setChecking(false); },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 },
     );
   }, [sendPosition]);
@@ -90,7 +93,7 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
     if (!activeVisitId || !navigator.geolocation) return;
     const watchId = navigator.geolocation.watchPosition(
       position => { void sendPosition(position); },
-      cause => setError(`Location unavailable: ${cause.message}`),
+      cause => { if (cause.code === 1) { locationDenied.current = true; navigator.geolocation.clearWatch(watchId); } setLocationNotice("Location is unavailable. Your QR attendance is saved; the trip timer will still run. Security can verify your physical exit."); },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20_000 },
     );
     const onVisible = () => { if (document.visibilityState === "visible") checkNow(true); };
@@ -107,6 +110,7 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
       <h1>Hello, {actorInfo.name.split(" ")[0]}.</h1>
       <p>Sign in once, then scan the site QR each day at the gate.</p>
       {error && <div className="notice error">{error}</div>}
+      {locationNotice && <div className="notice">{locationNotice}</div>}
       {message && <div className="notice success"><Check size={18}/>{message}</div>}
       {data?.driver ? <>
         {data.driver.lorries?.some(lorry => lorry.active)

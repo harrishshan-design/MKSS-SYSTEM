@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { actor, ApiError, audit, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
-import { driverDetails } from "@/lib/driver-registration";
+import { driverDetails, internalDriverEmail, vehicleLoginKey } from "@/lib/driver-registration";
+import { randomUUID } from "node:crypto";
 
 const fields = "id,auth_user_id,email,full_name,phone,identity_reference,requested_company,has_driving_licence,trip_type,requested_lorry,requested_vehicle_type,status,created_at";
 
@@ -25,11 +26,21 @@ export async function PATCH(req: NextRequest) {
     const { data: previous, error: readError } = await db.from("driver_registration_requests")
       .select(fields).eq("id", body.id).eq("status", "PENDING").single();
     if (readError || !previous) throw new ApiError(409, "This registration is no longer pending");
+    if (vehicleLoginKey(body.requested_lorry) !== vehicleLoginKey(previous.requested_lorry || "")) {
+      const { data: matches, error: lookupError } = await db.rpc("driver_vehicle_login_candidates", { p_vehicle: vehicleLoginKey(body.requested_lorry) });
+      if (lookupError) throw new ApiError(503, "Vehicle lookup is temporarily unavailable");
+      if (matches?.some((match: { auth_user_id: string }) => match.auth_user_id !== previous.auth_user_id))
+        throw new ApiError(409, "This vehicle already belongs to another driver or pending request");
+    }
     const changedEmail = body.email !== previous.email;
     const changedIc = Boolean(previous.identity_reference && body.identity_reference !== previous.identity_reference);
+    const { data: account, error: accountError } = await db.auth.admin.getUserById(previous.auth_user_id);
+    if (accountError || !account.user?.email) throw new ApiError(409, "Driver login not found");
+    const oldAuthEmail = account.user.email;
+    const nextAuthEmail = body.email || internalDriverEmail(randomUUID());
     if (changedEmail || changedIc) {
       const { error } = await db.auth.admin.updateUserById(previous.auth_user_id, {
-        ...(changedEmail ? { email: body.email, email_confirm: true } : {}),
+        ...(changedEmail ? { email: nextAuthEmail, email_confirm: true } : {}),
         ...(changedIc ? { password: body.identity_reference } : {}),
       });
       if (error) throw new ApiError(409, error.message);
@@ -43,7 +54,7 @@ export async function PATCH(req: NextRequest) {
     if (updateError || !updated) {
       if (changedEmail || changedIc) {
         const { error: rollbackError } = await db.auth.admin.updateUserById(previous.auth_user_id, {
-          ...(changedEmail ? { email: previous.email, email_confirm: true } : {}),
+          ...(changedEmail ? { email: oldAuthEmail, email_confirm: true } : {}),
           ...(changedIc ? { password: previous.identity_reference } : {}),
         });
         if (rollbackError) console.error("Registration email rollback failed", rollbackError);

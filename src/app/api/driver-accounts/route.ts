@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
     const accounts = await Promise.all((profiles || []).map(async profile => {
       const { data, error: authError } = await db.auth.admin.getUserById(profile.id);
       if (authError) throw authError;
-      return { ...profile, email: data.user.email || "" };
+      const email = data.user.email || "";
+      return { ...profile, email: email.endsWith("@login.mkss.invalid") ? "" : email };
     }));
     return NextResponse.json(accounts);
   } catch (error) { return fail(error); }
