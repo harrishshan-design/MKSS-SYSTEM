@@ -29,9 +29,9 @@ describe("driver signup details", () => {
     expect(signup.safeParse({ ...valid, identity_reference: "900101101234" }).success).toBe(true);
   });
 
-  it("accepts drivers without email and normalizes their vehicle login", () => {
-    expect(signup.parse({ ...valid, email: "" }).email).toBeNull();
-    expect(signup.parse({ ...valid, email: undefined }).email).toBeNull();
+  it("requires email at signup and still normalizes vehicle login", () => {
+    expect(signup.safeParse({ ...valid, email: "" }).success).toBe(false);
+    expect(signup.safeParse({ ...valid, email: undefined }).success).toBe(false);
     expect(signup.safeParse({ ...valid, email: "invalid" }).success).toBe(false);
     expect(vehicleLoginKey("bpk-1234")).toBe(vehicleLoginKey("BPK 1234"));
   });

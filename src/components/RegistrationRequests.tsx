@@ -7,7 +7,7 @@ import { siteDateTime } from "@/lib/date";
 
 type Request = {
   id: string;
-  email: string | null;
+  email: string;
   full_name: string;
   identity_reference: string;
   phone: string;
@@ -70,11 +70,11 @@ export default function RegistrationRequests() {
     {busy && <div className="panel pad center"><Loader2 className="spin" size={22}/></div>}
     {!busy && requests.length === 0 && <div className="panel pad center"><h2>No pending registrations</h2><p className="muted">New driver requests will appear here.</p></div>}
     <div className="registration-list">{requests.map(request => <div className="panel registration-card" key={request.id}>
-      <div className="registration-summary"><div><span className="eyebrow">PENDING DRIVER</span><h2>{request.full_name}</h2><p>{request.email || "No email · vehicle login"} · {request.phone}</p><p><strong>{request.requested_company}</strong> · {request.trip_type || "Type not supplied"}</p><p>IC: {request.identity_reference || "Not supplied"} · Driving licence: {request.has_driving_licence === null ? "Not answered" : request.has_driving_licence ? "Yes" : "No"}</p><p>Vehicle number: {request.requested_lorry || "Not supplied"}</p></div><span className="muted">{siteDateTime(request.created_at)}</span></div>
+      <div className="registration-summary"><div><span className="eyebrow">PENDING DRIVER</span><h2>{request.full_name}</h2><p>{request.email} · {request.phone}</p><p><strong>{request.requested_company}</strong> · {request.trip_type || "Type not supplied"}</p><p>IC: {request.identity_reference || "Not supplied"} · Driving licence: {request.has_driving_licence === null ? "Not answered" : request.has_driving_licence ? "Yes" : "No"}</p><p>Vehicle number: {request.requested_lorry || "Not supplied"}</p></div><span className="muted">{siteDateTime(request.created_at)}</span></div>
       {draft?.id === request.id ? <form className="registration-edit" onSubmit={save}>
         <div className="registration-edit-grid">
           <label>Name<input required minLength={2} maxLength={120} value={draft.full_name} onChange={event => setDraft({ ...draft, full_name: event.target.value })}/></label>
-          <label>Email address (optional)<input type="email" value={draft.email || ""} onChange={event => setDraft({ ...draft, email: event.target.value || null })}/></label>
+          <label>Email address<input required type="email" value={draft.email} onChange={event => setDraft({ ...draft, email: event.target.value })}/></label>
           <label>IC number<input required minLength={6} maxLength={30} value={draft.identity_reference || ""} onChange={event => setDraft({ ...draft, identity_reference: event.target.value })}/></label>
           <label>Phone number<input required type="tel" value={draft.phone} onChange={event => setDraft({ ...draft, phone: event.target.value })}/></label>
           <label>Company name<input required maxLength={120} value={draft.requested_company} onChange={event => setDraft({ ...draft, requested_company: event.target.value })}/></label>

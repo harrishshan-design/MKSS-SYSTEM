@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { actor, ApiError, audit, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
-import { driverDetails, internalDriverEmail, vehicleLoginKey } from "@/lib/driver-registration";
-import { randomUUID } from "node:crypto";
+import { driverDetails, vehicleLoginKey } from "@/lib/driver-registration";
 
 const fields = "id,auth_user_id,email,full_name,phone,identity_reference,requested_company,has_driving_licence,trip_type,requested_lorry,requested_vehicle_type,status,created_at";
 
@@ -37,10 +36,9 @@ export async function PATCH(req: NextRequest) {
     const { data: account, error: accountError } = await db.auth.admin.getUserById(previous.auth_user_id);
     if (accountError || !account.user?.email) throw new ApiError(409, "Driver login not found");
     const oldAuthEmail = account.user.email;
-    const nextAuthEmail = body.email || internalDriverEmail(randomUUID());
     if (changedEmail || changedIc) {
       const { error } = await db.auth.admin.updateUserById(previous.auth_user_id, {
-        ...(changedEmail ? { email: nextAuthEmail, email_confirm: true } : {}),
+        ...(changedEmail ? { email: body.email, email_confirm: true } : {}),
         ...(changedIc ? { password: body.identity_reference } : {}),
       });
       if (error) throw new ApiError(409, error.message);

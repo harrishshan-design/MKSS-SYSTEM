@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ApiError, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
-import { signup, internalDriverEmail, vehicleLoginKey } from "@/lib/driver-registration";
-import { randomUUID } from "node:crypto";
+import { signup, vehicleLoginKey } from "@/lib/driver-registration";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,7 +15,7 @@ export async function POST(req: NextRequest) {
     if (matches?.length) throw new ApiError(409, "This vehicle already has a driver account or pending request. Ask the administrator to review it.");
 
     const { data, error } = await db.auth.admin.createUser({
-      email: body.email || internalDriverEmail(randomUUID()),
+      email: body.email,
       password: body.identity_reference,
       email_confirm: true,
     });
