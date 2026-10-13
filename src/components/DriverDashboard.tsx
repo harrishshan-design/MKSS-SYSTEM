@@ -19,6 +19,9 @@ type DriverVisit = {
   loading_area_out: string | null;
   last_location_at: string | null;
   company_time_out: string | null;
+  auto_timeout_at: string | null;
+  checkout_method: string | null;
+  purpose: string | null;
 };
 type DriverData = {
   driver: { full_name: string; pass_code: string | null; default_trip_type: string | null; companies?: { name: string } | null; lorries?: { registration_number: string; active: boolean }[] };
@@ -110,15 +113,15 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
           ? <DriverCheckin onCheckedIn={load}/>
           : <div className="notice">Your account is approved. Ask the admin to assign your lorry before scanning the daily QR.</div>}
         <div className="driver-pass"><div className="pass-header"><span>YOUR ROTATING DRIVER PASS</span><Truck size={25}/></div>{data.driver.pass_code?<QRCodeView value={data.driver.pass_code} label={data.driver.full_name} secure/>:<p>This driver pass is inactive. Ask an admin to reactivate it.</p>}<div className="pass-bottom"><div><span>TRANSPORT COMPANY</span><strong>{data.driver.companies?.name || "—"}</strong></div><div><span>ASSIGNED LORRY</span><strong>{data.driver.lorries?.find(lorry => lorry.active)?.registration_number || "—"}</strong></div><div><span>TYPE</span><strong>{data.driver.default_trip_type || "—"}</strong></div></div></div>
-        {latestVisit && <div className="location-card"><div className="section-heading"><h2>Latest trip · {latestVisit.visit_code}</h2><span className={`badge ${latestVisit.status.toLowerCase().replaceAll("_", "-")}`}>{latestVisit.status.replaceAll("_", " ")}</span></div><div className="trip-steps">{[["Arrival registered",latestVisit.security_registered_at],["Gate entry",latestVisit.company_time_in],["Loading started",latestVisit.loading_area_in],["Loading finished",latestVisit.loading_area_out],["Site exit",latestVisit.company_time_out]].map(([label,time])=><div key={label} className={time?"done":"pending"}><span>{label}</span><strong>{time?siteClockTime(time):"Pending"}</strong></div>)}</div></div>}
+        {latestVisit && <div className="location-card"><div className="section-heading"><h2>Latest trip · {latestVisit.visit_code}</h2><span className={`badge ${latestVisit.status.toLowerCase().replaceAll("_", "-")}`}>{latestVisit.status.replaceAll("_", " ")}</span></div><div className="trip-steps">{[["Arrival registered",latestVisit.security_registered_at],["Gate entry",latestVisit.company_time_in],["Loading started",latestVisit.loading_area_in],["Loading finished",latestVisit.loading_area_out],[latestVisit.checkout_method==="TIME_LIMIT"?"Timed out (exit unverified)":"Site exit",latestVisit.company_time_out]].map(([label,time])=><div key={label} className={time?"done":"pending"}><span>{label}</span><strong>{time?siteClockTime(time):"Pending"}</strong></div>)}</div>{latestVisit.checkout_method==="TIME_LIMIT"&&<div className="notice">The trip timer ended. Security must still confirm the lorry physically exited.</div>}</div>}
         {activeVisit && <div className="location-card">
           <div className="section-heading"><h2>Active visit</h2><span className={`badge ${activeVisit.status.toLowerCase().replaceAll("_", "-")}`}>{activeVisit.status.replaceAll("_", " ")}</span></div>
           <strong>{activeVisit.visit_code}</strong>
-          <p>Time out is saved when a fresh GPS reading confirms you are beyond 200 m from the site.</p>
+          <p>{activeVisit.auto_timeout_at?`${activeVisit.purpose || "This trip"} automatically times out at ${siteClockTime(activeVisit.auto_timeout_at)}. A fresh GPS reading beyond 200 m can confirm exit sooner.`:"Time out is saved when a fresh GPS reading confirms you are beyond 200 m from the site."}</p>
           <button className="button primary full" onClick={() => checkNow()} disabled={checking}><MapPin size={18}/>{checking ? "Checking location…" : "Check location / time out"}</button>
           <small>Last accepted GPS: {siteClockTime(activeVisit.last_location_at)} · Automatic GPS runs while this page is open</small>
         </div>}
-        <div className="inline-hint"><Smartphone size={17}/> Keep this page open with location permission enabled until you leave. If the page closes or moves to the background, reopen it and tap “Check location / time out”. Time out is saved only when fresh GPS confirms you are beyond 200 m.</div>
+        <div className="inline-hint"><Smartphone size={17}/> Keep location enabled for an accurate exit. The 30-minute or 2-hour timer closes the trip automatically, but security must verify a physical exit if GPS was not received.</div>
       </> : <div className="center pad"><Loader2 className="spin"/></div>}
     </main>
   </div>;

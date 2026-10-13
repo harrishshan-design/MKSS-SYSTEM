@@ -12,7 +12,13 @@ export async function POST(req: NextRequest) {
     if(error || !driver || !driver.active || !driver.qr_active || !verifyDriverPassCode(token,driver.id,driver.qr_token)) throw new ApiError(404,"Driver QR is invalid or expired");
     const {data:lorries,error:lorryError}=await db.from("lorries").select("id,registration_number,vehicle_type,active").eq("assigned_driver_id",driver.id).eq("active",true); if(lorryError) throw lorryError;
     const lorry=lorries?.[0]; if(!lorry) throw new ApiError(409,"No active lorry is assigned to this driver");
-    const {data:activeVisit,error:visitError}=await db.from("visits").select("id,visit_code,status").eq("lorry_id",lorry.id).not("status","in",'(COMPLETED,CANCELLED)').maybeSingle(); if(visitError) throw visitError;
-    return NextResponse.json({driver:{id:driver.id,full_name:driver.full_name,active:driver.active,qr_active:driver.qr_active,company_id:driver.company_id,companies:driver.companies},lorry,activeVisit});
+    const {data:openVisit,error:visitError}=await db.from("visits").select("id,visit_code,status,checkout_method").eq("lorry_id",lorry.id).not("status","in",'(COMPLETED,CANCELLED)').maybeSingle(); if(visitError) throw visitError;
+    const {data:timedOut,error:timeoutError}=openVisit ? {data:null,error:null} : await db.from("visits")
+      .select("id,visit_code,status,checkout_method").eq("lorry_id",lorry.id)
+      .eq("status","COMPLETED").eq("checkout_method","TIME_LIMIT")
+      .gte("company_time_out",new Date(Date.now()-86_400_000).toISOString())
+      .order("created_at",{ascending:false}).limit(1).maybeSingle();
+    if(timeoutError) throw timeoutError;
+    return NextResponse.json({driver:{id:driver.id,full_name:driver.full_name,active:driver.active,qr_active:driver.qr_active,company_id:driver.company_id,companies:driver.companies},lorry,activeVisit:openVisit||timedOut});
   } catch(error) { return fail(error); }
 }

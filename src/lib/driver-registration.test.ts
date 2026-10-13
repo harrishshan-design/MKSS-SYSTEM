@@ -13,6 +13,7 @@ describe("driver signup details", () => {
       expect(signup.safeParse({ ...valid, [field]: "" }).success).toBe(false);
     expect(signup.safeParse({ ...valid, has_driving_licence: false }).success).toBe(true);
     expect(signup.safeParse({ ...valid, has_driving_licence: "No" }).success).toBe(false);
+    expect(signup.safeParse({ ...valid, trip_type: "Manual" }).success).toBe(true);
     expect(signup.safeParse({ ...valid, trip_type: "Other" }).success).toBe(false);
   });
 

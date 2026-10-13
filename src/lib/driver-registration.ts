@@ -8,7 +8,7 @@ export const driverDetails = z.object({
   requested_company: z.string().trim().min(2).max(120),
   requested_lorry: z.string().trim().min(2).max(40).transform(value => value.toUpperCase()),
   has_driving_licence: z.boolean(),
-  trip_type: z.enum(["Hantar Barang", "Ambil Barang"]),
+  trip_type: z.enum(["Hantar Barang", "Ambil Barang", "Manual"]),
 });
 
 export const signup = driverDetails;
