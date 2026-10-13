@@ -19,7 +19,7 @@ type Request = {
   created_at: string;
 };
 
-export default function RegistrationRequests() {
+export default function RegistrationRequests({ onChanged }: { onChanged?: () => void }) {
   const [requests, setRequests] = useState<Request[]>([]);
   const [busy, setBusy] = useState(true);
   const [saving, setSaving] = useState("");
@@ -59,6 +59,7 @@ export default function RegistrationRequests() {
       await api("signup/approve", { method: "POST", body: JSON.stringify({ request_id: request.id }) });
       setMessage(`${request.full_name} can now sign in and scan the daily QR with vehicle ${request.requested_lorry}.`);
       await refresh();
+      onChanged?.();
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setSaving(""); }
   }

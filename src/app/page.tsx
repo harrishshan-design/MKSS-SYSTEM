@@ -9,6 +9,7 @@ import type { GateVisit } from "@/components/GateDashboard";
 import QRCodeView from "@/components/QRCode";
 import { Login, PendingApproval } from "@/components/AuthScreens";
 import RegistrationRequests from "@/components/RegistrationRequests";
+import AdminApprovalAlerts from "@/components/AdminApprovalAlerts";
 import DriverAccounts from "@/components/DriverAccounts";
 import ExcelIntegration from "@/components/ExcelIntegration";
 import DriverDashboard from "@/components/DriverDashboard";
@@ -35,6 +36,7 @@ function Empty({title,description}:{title:string;description:string}) { return <
 export default function Home() {
   const configured=Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL&&process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
   const [sessionReady,setSessionReady]=useState(false),[connectionIssue,setConnectionIssue]=useState(false),[retryIdentity,setRetryIdentity]=useState(0),[actorInfo,setActorInfo]=useState<Actor|null>(null),[pending,setPending]=useState<{status:"PENDING"|"APPROVED"|"REJECTED";full_name:string;requested_company:string;requested_lorry:string|null;trip_type:"Hantar Barang"|"Ambil Barang"|"Manual"|null}|null>(null),[authError,setAuthError]=useState(""),[section,setSection]=useState("overview"),[overview,setOverview]=useState<Overview|null>(null),[loading,setLoading]=useState(true),[sidebar,setSidebar]=useState(false),[tick,setTick]=useState(0);
+  const [pendingApprovalCount,setPendingApprovalCount]=useState(0),[approvalRefreshKey,setApprovalRefreshKey]=useState(0);
   const refresh=useCallback(async()=>{try { const data=await api<Overview>("overview"); setOverview(data); setAuthError(""); }catch(error){setAuthError(error instanceof Error?error.message:String(error));}finally{setLoading(false);}},[]);
   useEffect(() => {
     if (!configured) { setSessionReady(true); return; }
@@ -112,7 +114,7 @@ export default function Home() {
     if(section==="live") return <LivePage overview={overview} tick={tick} refresh={refresh} canEdit/>;
     if(section==="visits") return <HistoryPage overview={overview} refresh={refresh}/>;
     if(["drivers","lorries","companies","security_guards"].includes(section)) return <RecordsPage resource={section} key={section}/>;
-    if(section==="registrations") return <RegistrationRequests/>;
+    if(section==="registrations") return <RegistrationRequests onChanged={()=>setApprovalRefreshKey(value=>value+1)}/>;
     if(section==="accounts") return <AccountsPage/>;
     if(section==="attendance") return <AttendancePage overview={overview}/>;
     if(section==="reports") return <ReportsPage overview={overview}/>;
@@ -120,7 +122,7 @@ export default function Home() {
     if(section==="integrations") return <SettingsPage/>;
     if(section==="settings") return <SettingsPage/>;
   };
-  return <div className="shell"><aside className={`sidebar ${sidebar?"open":""}`}><div className="brand"><div className="brand-symbol"><Truck size={24}/></div><div><strong>MKSS</strong><span>SYSTEM</span></div><button className="mobile-close icon-button" onClick={()=>setSidebar(false)}><X size={18}/></button></div><div className="workspace-chip"><span className="workspace-dot"/> {monitor?"READ ONLY MONITOR":"OPERATIONS CENTER"}</div><nav>{navItems.map(item=><button key={item.id} className={`nav-item ${currentSection===item.id?"selected":""}`} onClick={()=>{setSection(item.id);setSidebar(false)}}><item.icon size={19}/>{item.label}{item.id==="settings"&&!!overview?.syncPending&&<span className="nav-count">{overview.syncPending}</span>}</button>)}</nav><div className="sidebar-footer"><div className="sidebar-help"><ShieldCheck size={19}/><div><strong>Site operations</strong><span>Live oversight, always on.</span></div></div><button className="nav-item signout" onClick={()=>publicClient().auth.signOut()}><LogOut size={18}/> Sign out</button></div></aside><div className="main-wrap"><header className="topbar"><div className="row gap"><button className="icon-button mobile-menu" onClick={()=>setSidebar(true)} aria-label="Open menu"><Menu size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <strong>{current.label}</strong></span></div><div className="topbar-right"><span className="live-pill"><span/> LIVE</span><span className="top-date">{new Date(tick).toLocaleDateString("en-MY",{weekday:"short",day:"numeric",month:"long",year:"numeric"})}</span><div className="avatar">{actorInfo.name.slice(0,1).toUpperCase()}</div></div></header><main className="content">{loading&&<div className="notice"><Loader2 className="spin" size={16}/> Loading live data…</div>}<ErrorBox message={authError}/>{content()}</main></div></div>;
+  return <div className="shell"><aside className={`sidebar ${sidebar?"open":""}`}><div className="brand"><div className="brand-symbol"><Truck size={24}/></div><div><strong>MKSS</strong><span>SYSTEM</span></div><button className="mobile-close icon-button" onClick={()=>setSidebar(false)}><X size={18}/></button></div><div className="workspace-chip"><span className="workspace-dot"/> {monitor?"READ ONLY MONITOR":"OPERATIONS CENTER"}</div><nav>{navItems.map(item=><button key={item.id} className={`nav-item ${currentSection===item.id?"selected":""}`} onClick={()=>{setSection(item.id);setSidebar(false)}}><item.icon size={19}/>{item.label}{item.id==="settings"&&!!overview?.syncPending&&<span className="nav-count">{overview.syncPending}</span>}{item.id==="registrations"&&pendingApprovalCount>0&&<span className="nav-count">{pendingApprovalCount}</span>}</button>)}</nav><div className="sidebar-footer"><div className="sidebar-help"><ShieldCheck size={19}/><div><strong>Site operations</strong><span>Live oversight, always on.</span></div></div><button className="nav-item signout" onClick={()=>publicClient().auth.signOut()}><LogOut size={18}/> Sign out</button></div></aside><div className="main-wrap"><header className="topbar"><div className="row gap"><button className="icon-button mobile-menu" onClick={()=>setSidebar(true)} aria-label="Open menu"><Menu size={21}/></button><span className="breadcrumb">Workspace <span>/</span> <strong>{current.label}</strong></span></div><div className="topbar-right">{!monitor&&<AdminApprovalAlerts onReview={()=>{setSection("registrations");setSidebar(false)}} onCountChange={setPendingApprovalCount} refreshKey={approvalRefreshKey}/>}<span className="live-pill"><span/> LIVE</span><span className="top-date">{new Date(tick).toLocaleDateString("en-MY",{weekday:"short",day:"numeric",month:"long",year:"numeric"})}</span><div className="avatar">{actorInfo.name.slice(0,1).toUpperCase()}</div></div></header><main className="content">{loading&&<div className="notice"><Loader2 className="spin" size={16}/> Loading live data…</div>}<ErrorBox message={authError}/>{content()}</main></div></div>;
 }
 
 

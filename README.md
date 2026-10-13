@@ -30,7 +30,7 @@ The driver page uses the browser Geolocation API while open and location sharing
    ```
 
 5. Run `npm run dev` and open `http://localhost:3000`. Sign in as the admin. **There is no default email or password.**
-6. Drivers can choose **Create an account** on the sign-in screen. Their request appears under **Driver registrations**; review or correct the submitted details, then approve. Approval creates the driver, company, and lorry records as needed. Guards are optional for the driver daily QR flow; create and invite guards if gate scans are used. Configure the company geofence in **Site settings** before tracking visits.
+6. Drivers can choose **Create an account** on the sign-in screen. Their request appears under **Driver registrations**; review or correct the submitted details, then approve. Admins see a pending approval count in the sidebar and header bell, with a brief in-app alert when a new request arrives while MKSS is open. The count refreshes about every five seconds and updates after approval. Approval creates the driver, company, and lorry records as needed. Guards are optional for the driver daily QR flow; create and invite guards if gate scans are used. Configure the company geofence in **Site settings** before tracking visits.
 
 ### Environment variables
 
