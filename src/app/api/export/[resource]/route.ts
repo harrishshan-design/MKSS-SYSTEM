@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { actor, ApiError, fail } from "@/lib/api";
-import { csvDocument } from "@/lib/csv";
+import { csvDocument, csvMalaysiaDateTime } from "@/lib/csv";
 import { adminClient } from "@/lib/supabase";
 
 type Resource = "visits" | "drivers" | "lorries" | "companies";
@@ -22,20 +22,20 @@ function related(row: Row, key: string, field: string): unknown {
 
 function document(resource: Resource, rows: Row[]): string {
   if (resource === "visits") return csvDocument(
-    ["Visit ID", "Date", "Driver", "Company", "Vehicle number", "Vehicle type", "Guard", "Trip type", "Status", "Registered", "Time in", "Loading in", "Loading out", "Time out", "Total seconds", "Exit method"],
-    rows.map(row => [row.visit_code, row.visit_date, related(row, "drivers", "full_name"), related(row, "companies", "name"), related(row, "lorries", "registration_number"), related(row, "lorries", "vehicle_type"), related(row, "security_guards", "full_name"), row.purpose, row.status, row.security_registered_at, row.company_time_in, row.loading_area_in, row.loading_area_out, row.company_time_out, row.total_duration_seconds, row.checkout_method]),
+    ["Visit ID", "Date", "Driver", "Company", "Vehicle number", "Vehicle type", "Guard", "Trip type", "Status", "Registered (MYT)", "Time in (MYT)", "Loading in (MYT)", "Loading out (MYT)", "Time out (MYT)", "Total seconds", "Exit method"],
+    rows.map(row => [row.visit_code, row.visit_date, related(row, "drivers", "full_name"), related(row, "companies", "name"), related(row, "lorries", "registration_number"), related(row, "lorries", "vehicle_type"), related(row, "security_guards", "full_name"), row.purpose, row.status, csvMalaysiaDateTime(row.security_registered_at), csvMalaysiaDateTime(row.company_time_in), csvMalaysiaDateTime(row.loading_area_in), csvMalaysiaDateTime(row.loading_area_out), csvMalaysiaDateTime(row.company_time_out), row.total_duration_seconds, row.checkout_method]),
   );
   if (resource === "drivers") return csvDocument(
-    ["Driver ID", "Driver code", "Name", "IC number", "Phone", "Driving licence", "Company", "Active", "Created at"],
-    rows.map(row => [row.id, row.driver_code, row.full_name, row.identity_reference, row.phone, row.licence_number, related(row, "companies", "name"), row.active, row.created_at]),
+    ["Driver ID", "Driver code", "Name", "IC number", "Phone", "Driving licence", "Company", "Active", "Created at (MYT)"],
+    rows.map(row => [row.id, row.driver_code, row.full_name, row.identity_reference, row.phone, row.licence_number, related(row, "companies", "name"), row.active, csvMalaysiaDateTime(row.created_at)]),
   );
   if (resource === "lorries") return csvDocument(
-    ["Lorry ID", "Lorry code", "Vehicle number", "Vehicle type", "Company", "Assigned driver", "Active", "Created at"],
-    rows.map(row => [row.id, row.lorry_code, row.registration_number, row.vehicle_type, related(row, "companies", "name"), related(row, "drivers", "full_name"), row.active, row.created_at]),
+    ["Lorry ID", "Lorry code", "Vehicle number", "Vehicle type", "Company", "Assigned driver", "Active", "Created at (MYT)"],
+    rows.map(row => [row.id, row.lorry_code, row.registration_number, row.vehicle_type, related(row, "companies", "name"), related(row, "drivers", "full_name"), row.active, csvMalaysiaDateTime(row.created_at)]),
   );
   return csvDocument(
-    ["Company ID", "Company code", "Company name", "Contact", "Phone", "Email", "Active", "Created at"],
-    rows.map(row => [row.id, row.company_code, row.name, row.contact_person, row.phone, row.email, row.active, row.created_at]),
+    ["Company ID", "Company code", "Company name", "Contact", "Phone", "Email", "Active", "Created at (MYT)"],
+    rows.map(row => [row.id, row.company_code, row.name, row.contact_person, row.phone, row.email, row.active, csvMalaysiaDateTime(row.created_at)]),
   );
 }
 

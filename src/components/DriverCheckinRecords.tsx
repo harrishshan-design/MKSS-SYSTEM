@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import { api } from "@/lib/client-api";
+import { csvMalaysiaDateTime } from "@/lib/csv";
 import { siteDate, siteDateTime } from "@/lib/date";
 
 type Checkin = { id: string; created_at: string; new_value: {
@@ -43,8 +44,8 @@ export default function DriverCheckinRecords() {
   }, [load]);
 
   function download() {
-    const lines = [["Date", "Attendance time", "Driver", "Company", "Lorry", "Site", "Trips in", "Trips out"],
-      ...rows.map(row => [row.new_value.date, row.created_at, row.new_value.driver,
+    const lines = [["Date", "Attendance time (MYT)", "Driver", "Company", "Lorry", "Site", "Trips in", "Trips out"],
+      ...rows.map(row => [row.new_value.date, csvMalaysiaDateTime(row.created_at), row.new_value.driver,
         row.new_value.company, row.new_value.lorry, row.new_value.site, row.trip_count, row.checkout_count])];
     const blob = new Blob(["\uFEFF", lines.map(line => line.map(csvCell).join(",")).join("\r\n")],
       { type: "text/csv;charset=utf-8" });
