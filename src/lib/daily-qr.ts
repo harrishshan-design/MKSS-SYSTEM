@@ -1,6 +1,13 @@
 import { adminClient } from "@/lib/supabase";
 import { siteDate } from "@/lib/date";
 
+export async function siteBackupQr() {
+  const { data, error } = await adminClient().from("site_backup_qr")
+    .select("token").eq("id", 1).single();
+  if (error) throw error;
+  return data.token as string;
+}
+
 export async function ensureDailyQr(createdBy?: string) {
   const db = adminClient();
   const date = siteDate();

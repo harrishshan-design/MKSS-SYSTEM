@@ -67,6 +67,7 @@ export async function syncOne(entityType:string,entityId:string,token:string,con
 }
 
 export async function processSyncQueue(limit=10) {
+  if (process.env.MICROSOFT_SYNC_ENABLED !== "true") return {synced:0,failed:0,waiting:true};
   if (!microsoftSetup().ready) return {synced:0,failed:0,waiting:true};
   const db=adminClient();
   const owner=randomUUID();

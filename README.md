@@ -53,16 +53,13 @@ Generate the encryption key with `node -e "console.log(require('crypto').randomB
 
 Generate one VAPID key pair with `node -e "console.log(require('web-push').generateVAPIDKeys())"` and set the public and private keys in the deployment environment. Keep the private key secret and stable; changing either key requires admins to enable alerts again on each device. Sign in as an admin on the phone, open the header bell, tap **Enable phone alerts**, and allow notifications. Use **Send test** to confirm delivery. On iPhone, first open MKSS in Safari, use **Share → Add to Home Screen**, then open the installed MKSS icon and enable alerts there. Each admin phone must opt in separately. These are PWA push notifications, not WhatsApp messages; phone settings, Focus modes, connectivity, and push provider delivery can affect arrival. New signups remain in Supabase and the admin approval queue even if a push fails. Failed push sends are queued for retry by `/api/cron`.
 
-## Microsoft Entra and Excel setup
+## CSV exports and backup site QR
 
-1. Create an Entra app registration with **Accounts in any organizational directory and personal Microsoft accounts** and add a **Web** redirect URI: `APP_URL/api/microsoft/callback`. Set `MICROSOFT_CLIENT_ID` and a server-only `MICROSOFT_CLIENT_SECRET`. No tenant, drive, workbook, worksheet, or table IDs are needed in the environment.
-2. Add Microsoft Graph **delegated** `Files.ReadWrite` and `User.Read` permissions. Grant consent as required by the organization or account. The app also requests `offline_access` for a refresh token.
-3. Create an `.xlsx` workbook in OneDrive or SharePoint and copy its **sharing link**. In **Admin → Site settings → Microsoft Excel / OneDrive**, paste the link and choose **Connect Microsoft**. Complete Microsoft sign-in with an account that can edit the workbook. MKSS resolves the link to a drive item, detects the workbook name, worksheets, and tables, and encrypts the refresh token before saving it in Supabase.
-4. Choose an empty worksheet or an Excel table as the sync destination. An empty worksheet receives the MKSS headers automatically. A chosen table must already have these eight columns, in order: `MKSS Key`, `Record Type`, `Record Code`, `Name`, `Status`, `Timestamp`, `Details`, `Updated At`. Save the destination, then use **Test Connection** and **Sync now**. Existing MKSS records are queued when the destination changes.
-5. Set up `/api/cron` with `Authorization: Bearer CRON_SECRET`. The supplied `vercel.json` runs it daily at 16:00 UTC (midnight in Malaysia) to create that day's site QR and process queued work within Vercel Hobby limits. Opening Admin Attendance also creates the day's QR if the scheduled run has not done so. Administrators can select **Sync now** for Excel. Without a usable Microsoft connection, transactions still save in Supabase and Excel updates remain pending.
+Supabase is the live source of truth. Microsoft Excel synchronization is paused; it is not needed for driver registration, daily attendance, trips, or exports. Existing Microsoft connection details and queued sync records are retained for a possible later restart, but new transactions do not create Excel jobs and the cron does not send records to Excel.
 
-The workbook is an output mirror. The selected destination stores one row per MKSS record, with a stable key and JSON details. Avoid rearranging MKSS headers or manually moving rows because the sync worker matches records by the first column. Excel string values beginning with formula operators are escaped. **Disconnect Microsoft** removes the saved token and workbook mapping from MKSS; it does not delete the workbook or Supabase records.
+Administrators can export complete CSV files for drivers, lorries, companies, visit history, today's reports, and driver daily check-ins. Visit and master-data exports read all matching database pages, including ranges above 350 records. The history screen may show only the latest 1,000 visits, but its CSV includes every visit in the selected date range. CSV files use UTF-8 and escape spreadsheet formulas.
 
+**Daily site QR & attendance** also shows a printable backup site QR. Print it once and keep it at the gate. Signed-in drivers and guards can scan it if the daily QR is unavailable. MKSS checks the code on the server, uses the current Malaysia date, and saves the actual scan timestamp in Supabase. The backup QR is permanent, so store and display it only at the gate; the daily QR remains the preferred code.
 ## Visit flow
 
 1. MKSS generates one daily site QR at midnight Malaysia time, or when an admin first opens **Daily site QR & attendance** that day. After signing up and being approved once, a driver signs in and scans this QR each day. In one database transaction, MKSS saves attendance and opens a visit for the assigned lorry (unless an active visit already exists). The same day's repeat scan displays the existing check-in. The admin can review and export check-ins as CSV. Guards use the site QR separately for their shift attendance.
@@ -71,13 +68,13 @@ The workbook is an output mirror. The selected destination stores one row per MK
 4. If configured, loading-zone entry and exit record their timestamps and duration.
 5. The first valid fix outside the site-entry radius marks the visit as leaving. A valid fix beyond the configured checkout distance after the confirmation period completes it. A return inside the site-entry radius cancels the pending exit. The MKSS production site uses a 300 m entry radius and a 5 km checkout distance.
 6. The live movement board polls every 3 seconds while open, shows every open driver and lorry visit plus GPS freshness, and lists completed exits. Other dashboard sections poll every 10 seconds; timers update every second. The cron worker flags visits exceeding the configured threshold as delayed.
-7. Visit history and today's reports can be exported as CSV. Significant changes enqueue Excel sync jobs if Microsoft is configured; Microsoft credentials are optional for Supabase data collection.
+7. Visit history and today's reports can be exported as CSV. Microsoft Excel sync is paused; Supabase continues collecting records and CSV exports are available.
 
 ## Deployment
 
 Deploy to a secure HTTPS origin (for camera and geolocation permissions). Vercel is supported. Configure all environment variables in the deployment platform, set `APP_URL` to the deployed origin, add that origin to Supabase Auth settings, and update the Entra redirect URI. Protect the Supabase service key, Entra secret, token encryption key and cron secret. Keep the app and database in a suitable data residency region for your organization.
 
-Before live use, test real Android and iOS devices at the site, verify GPS accuracy and exit timing, validate invited accounts and roles, and run an end-to-end Excel sync against the actual tenant workbook. This repository has no tenant credentials, so live Supabase/Graph behavior cannot be verified locally without configuration.
+Before live use, test real Android and iOS devices at the site, verify GPS accuracy and exit timing, validate invited accounts and roles, and test the daily and backup QR with real driver and guard devices. The backup QR is a permanent fallback and can be copied, so keep the print at the gate.
 
 ## Checks
 

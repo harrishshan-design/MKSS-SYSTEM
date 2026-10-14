@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dailyCode, driverIdFromPass, driverPassCode, verifyDailyCode, verifyDriverPassCode } from "./rotating-qr";
+import { backupCode, dailyCode, driverIdFromPass, driverPassCode, verifyBackupCode, verifyDailyCode, verifyDriverPassCode } from "./rotating-qr";
 
 const secret = "b4825364-3ce9-4598-9635-81019adcc892";
 const driverId = "71f6eb92-046c-4d33-ae4c-e393358234bb";
@@ -13,6 +13,13 @@ describe("daily attendance and rotating driver QR challenges", () => {
     expect(verifyDailyCode(code, "2026-10-09", secret)).toBe(false);
     expect(verifyDailyCode(code, "2026-10-08", "wrong")).toBe(false);
     expect(dailyCode("2026-10-09", secret)).not.toBe(code);
+  });
+
+  it("accepts the printable backup QR only when its stored token matches", () => {
+    const code = backupCode(secret);
+    expect(verifyBackupCode(code, secret)).toBe(true);
+    expect(verifyBackupCode(code, driverId)).toBe(false);
+    expect(verifyBackupCode(`${code}x`, secret)).toBe(false);
   });
 
   it("ties a pass to its driver and rejects tampering", () => {

@@ -3,7 +3,7 @@ import { listDestinations, microsoftSetup, resolveSharedWorkbook, shareToken, va
 
 const workbook = { driveId: "drive-id", itemId: "item-id", name: "Operations.xlsx", webUrl: "https://example.sharepoint.com/workbook" };
 const required = { MICROSOFT_CLIENT_ID: "client", MICROSOFT_CLIENT_SECRET: "secret", MICROSOFT_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32).toString("base64"), APP_URL: "https://mkss.example.com" };
-function configured() { for (const [key, value] of Object.entries(required)) vi.stubEnv(key, value); }
+function configured() { for (const [key, value] of Object.entries(required)) vi.stubEnv(key, value); vi.stubEnv("MICROSOFT_SYNC_ENABLED", "true"); }
 const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
@@ -12,6 +12,11 @@ describe("Microsoft sharing-link connection", () => {
     configured();
     expect(microsoftSetup("https://mkss.example.com").ready).toBe(true);
     expect(microsoftSetup("https://other.example.com").ready).toBe(false);
+  });
+
+  it("keeps Microsoft sync paused by default", () => {
+    for (const [key, value] of Object.entries(required)) vi.stubEnv(key, value);
+    expect(microsoftSetup("https://mkss.example.com").ready).toBe(false);
   });
 
   it("encodes a sharing URL for the Graph shares API and rejects unsafe links", () => {

@@ -3,10 +3,10 @@ import { z } from "zod";
 import { actor, ApiError, audit, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
 import { siteDate } from "@/lib/date";
-import { ensureDailyQr } from "@/lib/daily-qr";
-import { dailyCode, verifyDailyCode } from "@/lib/rotating-qr";
+import { ensureDailyQr, siteBackupQr } from "@/lib/daily-qr";
+import { backupCode, dailyCode, verifyBackupCode, verifyDailyCode } from "@/lib/rotating-qr";
 export async function GET(req:NextRequest) {
-  try { const who=await actor(req,["admin"]); const qr=await ensureDailyQr(who.id); return NextResponse.json({date:qr.date,site:qr.site,code:dailyCode(qr.date,qr.challenge_secret)}); } catch(error) { return fail(error); }
+  try { const who=await actor(req,["admin"]); const [qr,backup]=await Promise.all([ensureDailyQr(who.id),siteBackupQr()]); return NextResponse.json({date:qr.date,site:qr.site,code:dailyCode(qr.date,qr.challenge_secret),backupCode:backupCode(backup)}); } catch(error) { return fail(error); }
 }
 export async function POST(req:NextRequest) {
   try { const who=await actor(req,["admin"]); const {site}=z.object({site:z.string().min(2)}).parse(await json(req)); const db=adminClient(); const date=siteDate();
@@ -17,7 +17,7 @@ export async function POST(req:NextRequest) {
 }
 export async function PUT(req:NextRequest) {
   try { const who=await actor(req,["guard"]); if(!who.guard_id) throw new ApiError(403,"Guard profile missing"); const {token,deviceId}=z.object({token:z.string().max(160),deviceId:z.string().max(100).optional()}).parse(await json(req));
-    const db=adminClient(); const date=siteDate(); const {data:qr,error:qrError}=await db.from("attendance_qr").select("*").eq("date",date).single(); if(qrError||!qr||!verifyDailyCode(token,date,qr.challenge_secret)) throw new ApiError(404,"This site QR has expired. Scan the current code.");
+    const db=adminClient(); const date=siteDate(); const [daily,backup]=await Promise.all([ensureDailyQr(),siteBackupQr()]); const qr=daily; if (!verifyDailyCode(token,date,qr.challenge_secret)&&!verifyBackupCode(token,backup)) throw new ApiError(404,"This site QR is invalid. Scan the daily or backup code.");
     const {data:guard}=await db.from("security_guards").select("shift").eq("id",who.guard_id).single();
     const {data:existing}=await db.from("security_attendance").select("*").eq("date",date).eq("guard_id",who.guard_id).maybeSingle();
     if(!existing) { const {data,error}=await db.from("security_attendance").insert({date,guard_id:who.guard_id,site:qr.site,shift:guard?.shift||null,device_id:deviceId||null}).select().single(); if(error) throw error; await audit(who,"GUARD_CLOCK_IN","security_attendance",data.id,null,data); return NextResponse.json(data); }

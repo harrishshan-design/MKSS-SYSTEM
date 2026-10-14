@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 const STEP_MS = 30_000;
 const CODE_RE = /^MKSS1:(A|D):([0-9a-f-]+):([0-9]+):([A-Za-z0-9_-]{22})$/;
 const DAILY_RE = /^MKSS2:A:(\d{4}-\d{2}-\d{2}):([A-Za-z0-9_-]{22})$/;
+const BACKUP_RE = /^MKSS3:B:([0-9a-f-]{36})$/;
 
 function signature(secret: string, kind: "A" | "D", subject: string, slot: number) {
   return createHmac("sha256", secret).update(`${kind}:${subject}:${slot}`).digest("base64url").slice(0, 22);
@@ -30,6 +31,14 @@ export function verifyDailyCode(code: string, date: string, secret: string) {
   if (!match || match[1] !== date) return false;
   const expected = Buffer.from(signature(secret, "A", date, 0));
   const received = Buffer.from(match[2]);
+  return expected.length === received.length && timingSafeEqual(expected, received);
+}
+export const backupCode = (token: string) => `MKSS3:B:${token}`;
+export function verifyBackupCode(code: string, token: string): boolean {
+  const match = BACKUP_RE.exec(code);
+  if (!match) return false;
+  const expected = Buffer.from(token);
+  const received = Buffer.from(match[1]);
   return expected.length === received.length && timingSafeEqual(expected, received);
 }
 export const driverPassCode = (driverId: string, secret: string, now = Date.now()) => make("D", driverId, secret, now);

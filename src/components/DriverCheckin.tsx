@@ -63,7 +63,7 @@ export default function DriverCheckin({ onCheckedIn, tripCount, checkoutCount, t
       : unverifiedTimeout ? <div className="notice">The last trip timed out. Ask security to confirm the physical exit before scanning again.</div>
       : <button className="scan-hero driver-scan" onClick={() => setScanning(true)} disabled={busy}>
         <span className="scan-icon">{busy ? <Loader2 className="spin" size={30}/> : <QrCode size={36}/>}</span>
-        <span><strong>{checkin ? `SCAN FOR TRIP ${tripCount + 1}` : "SCAN DAILY QR"}</strong><small>{checkin ? "Same daily QR · new trip record" : activeVisit ? "Record attendance for your open trip" : `Attendance and trip ${tripCount + 1}`}</small></span>
+        <span><strong>{checkin ? `SCAN FOR TRIP ${tripCount + 1}` : "SCAN SITE QR"}</strong><small>{checkin ? "Daily or backup QR · new trip record" : activeVisit ? "Record attendance for your open trip" : `Attendance and trip ${tripCount + 1}`}</small></span>
       </button>}
     {trips.length > 0 && <div className="driver-trip-list"><strong>Today&apos;s trips</strong>{trips.slice(0, 4).map((trip, index) =>
       <div key={trip.id}><span>Trip {tripCount - index} · {trip.visit_code}</span><small>In {siteClockTime(trip.company_time_in)} · {trip.company_time_out ? `${trip.checkout_method === "TIME_LIMIT" ? "Timed out, exit unverified" : "Out"} ${siteClockTime(trip.company_time_out)}` : "Still in"}</small></div>)}</div>}

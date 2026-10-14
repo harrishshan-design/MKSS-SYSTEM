@@ -14,6 +14,7 @@ const requiredVariables = ["MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET", "MI
 export function microsoftSetup(currentOrigin?: string) {
   const missing = requiredVariables.filter(name => !process.env[name]?.trim());
   const issues: string[] = [];
+  if (process.env.MICROSOFT_SYNC_ENABLED !== "true") issues.push("Microsoft Excel sync is paused; use CSV exports");
   const rawKey = process.env.MICROSOFT_TOKEN_ENCRYPTION_KEY;
   if (rawKey && Buffer.from(rawKey, "base64").length !== 32) issues.push("MICROSOFT_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key");
   const appUrl = process.env.APP_URL;
