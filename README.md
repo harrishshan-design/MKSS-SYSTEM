@@ -30,7 +30,7 @@ The driver page uses the browser Geolocation API while open and location sharing
    ```
 
 5. Run `npm run dev` and open `http://localhost:3000`. Sign in as the admin. **There is no default email or password.**
-6. Drivers can choose **Create an account** on the sign-in screen. Their request appears under **Driver registrations**; review or correct the submitted details, then approve. Admins see a pending approval count in the sidebar and header bell, with a brief in-app alert when a new request arrives while MKSS is open. The count refreshes about every five seconds and updates after approval. Approval creates the driver, company, and lorry records as needed. Guards are optional for the driver daily QR flow; create and invite guards if gate scans are used. Configure the company geofence in **Site settings** before tracking visits.
+6. Drivers can choose **Create an account** on the sign-in screen. Their request appears under **Driver registrations**; review or correct the submitted details, then approve. Admins see a pending approval count in the sidebar and header bell, with a brief in-app alert when a new request arrives while MKSS is open. The count refreshes about every five seconds and updates after approval. Admins can also enable phone push alerts in the bell menu for requests arriving while MKSS is closed. Approval creates the driver, company, and lorry records as needed. Guards are optional for the driver daily QR flow; create and invite guards if gate scans are used. Configure the company geofence in **Site settings** before tracking visits.
 
 ### Environment variables
 
@@ -41,11 +41,17 @@ The driver page uses the browser Geolocation API while open and location sharing
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase key |
 | `APP_URL` | Public application origin, such as `https://example.com` |
 | `CRON_SECRET` | Secret bearer token for `/api/cron` |
+| `WEB_PUSH_PUBLIC_KEY` | VAPID public key for admin phone notifications |
+| `WEB_PUSH_PRIVATE_KEY` | VAPID private key; server only |
 | `MICROSOFT_CLIENT_ID` | Microsoft Entra application ID |
 | `MICROSOFT_CLIENT_SECRET` | Entra client secret; server only |
 | `MICROSOFT_TOKEN_ENCRYPTION_KEY` | Base64-encoded random 32-byte key for AES-256-GCM token encryption |
 
 Generate the encryption key with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. Keep it stable and secret; rotating it requires reconnecting Microsoft.
+
+### Admin phone notifications
+
+Generate one VAPID key pair with `node -e "console.log(require('web-push').generateVAPIDKeys())"` and set the public and private keys in the deployment environment. Keep the private key secret and stable; changing either key requires admins to enable alerts again on each device. Sign in as an admin on the phone, open the header bell, tap **Enable phone alerts**, and allow notifications. Use **Send test** to confirm delivery. On iPhone, first open MKSS in Safari, use **Share → Add to Home Screen**, then open the installed MKSS icon and enable alerts there. Each admin phone must opt in separately. These are PWA push notifications, not WhatsApp messages; phone settings, Focus modes, connectivity, and push provider delivery can affect arrival. New signups remain in Supabase and the admin approval queue even if a push fails. Failed push sends are queued for retry by `/api/cron`.
 
 ## Microsoft Entra and Excel setup
 

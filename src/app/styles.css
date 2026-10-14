@@ -35,3 +35,12 @@
 .approval-review{width:100%;border:0;background:#173e32;color:#fff;border-radius:8px;min-height:34px;margin-top:10px;font-size:11px;font-weight:800}
 .approval-toast{position:fixed;z-index:40;top:78px;right:20px;max-width:calc(100vw - 40px);display:flex;align-items:center;gap:9px;padding:11px 13px;border:1px solid #d3e8cd;border-radius:10px;background:#f0f9ed;box-shadow:0 12px 35px #173e3226;color:#2d633f;font-size:11px;font-weight:700}
 .approval-toast>button:not(.icon-button){border:0;background:transparent;color:#205b36;font-size:11px;font-weight:800;text-decoration:underline}
+.approval-push{border-top:1px solid #e6eee5;margin-top:13px;padding-top:13px}
+.approval-push-title{display:flex;align-items:center;gap:7px;color:#355941}
+.approval-push-title strong{font-size:12px}
+.approval-push p{margin:7px 0 0;color:#6a7f70;font-size:12px;line-height:1.5}
+.approval-push .approval-push-message{color:#386d49;font-weight:700}
+.approval-push-actions{display:flex;gap:8px;margin-top:10px}
+.approval-push-actions button,.approval-enable{border:1px solid #cddfcb;background:#f2f8ef;color:#275b38;border-radius:7px;padding:9px 11px;font-size:11px;font-weight:800}
+.approval-enable{display:inline-flex;align-items:center;gap:7px;margin-top:10px;background:#173e32;color:#fff;border-color:#173e32}
+@media(max-width:600px){.approval-popover{position:fixed;top:65px;left:14px;right:14px;width:auto}}

@@ -1,7 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { ApiError, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
 import { signup, vehicleLoginKey } from "@/lib/driver-registration";
+import { processApprovalPush, queueApprovalPush } from "@/lib/admin-push";
+
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,7 +28,7 @@ export async function POST(req: NextRequest) {
     }
     if (!data.user) throw new ApiError(502, "Could not create the account. Please try again.");
 
-    const { error: insertError } = await db.from("driver_registration_requests").insert({
+    const { data: request, error: insertError } = await db.from("driver_registration_requests").insert({
       auth_user_id: data.user.id,
       email: body.email,
       full_name: body.full_name,
@@ -35,11 +38,17 @@ export async function POST(req: NextRequest) {
       requested_lorry: body.requested_lorry,
       has_driving_licence: body.has_driving_licence,
       trip_type: body.trip_type,
-    });
-    if (insertError) {
+    }).select("id").single();
+    if (insertError || !request) {
       await db.auth.admin.deleteUser(data.user.id);
-      throw insertError;
+      throw insertError || new Error("Could not save driver registration");
     }
+    try { await queueApprovalPush(request.id); }
+    catch (pushError) { console.error("Could not queue admin phone alerts", pushError); }
+    after(async () => {
+      try { await processApprovalPush(); }
+      catch (pushError) { console.error("Could not deliver admin phone alerts", pushError); }
+    });
     return NextResponse.json({ ok: true, email_confirmation_required: false }, { status: 202 });
   } catch (error) { return fail(error); }
 }
