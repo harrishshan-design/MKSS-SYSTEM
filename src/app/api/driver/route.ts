@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     const today=siteDate();
     const [{data:driver,error:driverError},{data:visits,error:visitError},{count:todayTripCount,error:countError},{count:todayCheckoutCount,error:checkoutError}]=await Promise.all([
       db.from("drivers").select("id,full_name,qr_token,qr_active,active,phone,default_trip_type,companies(name),lorries(id,registration_number,vehicle_type,active)").eq("id",who.driver_id).single(),
-      db.from("visits").select("id,visit_code,visit_date,status,security_registered_at,company_time_in,company_time_out,loading_area_in,loading_area_out,last_location_at,exit_pending_at,auto_timeout_at,checkout_method,purpose").eq("driver_id",who.driver_id).order("security_registered_at",{ascending:false}).limit(100),
+      db.from("visits").select("id,visit_code,visit_date,status,security_registered_at,company_time_in,company_time_out,loading_area_in,loading_area_out,last_location_at,exit_pending_at,auto_timeout_at,checkout_method,exit_verified_at,purpose").eq("driver_id",who.driver_id).order("security_registered_at",{ascending:false}).limit(100),
       db.from("visits").select("id",{count:"exact",head:true}).eq("driver_id",who.driver_id).eq("visit_date",today).not("company_time_in","is",null),
       db.from("visits").select("id",{count:"exact",head:true}).eq("driver_id",who.driver_id).eq("visit_date",today)
         .not("company_time_out","is",null).or("checkout_method.is.null,checkout_method.neq.TIME_LIMIT")

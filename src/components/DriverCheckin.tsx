@@ -66,7 +66,7 @@ export default function DriverCheckin({ onCheckedIn, tripCount, checkoutCount, t
         <span><strong>{checkin ? `SCAN FOR TRIP ${tripCount + 1}` : "SCAN SITE QR"}</strong><small>{checkin ? "Daily or backup QR · new trip record" : activeVisit ? "Record attendance for your open trip" : `Attendance and trip ${tripCount + 1}`}</small></span>
       </button>}
     {trips.length > 0 && <div className="driver-trip-list"><strong>Today&apos;s trips</strong>{trips.slice(0, 4).map((trip, index) =>
-      <div key={trip.id}><span>Trip {tripCount - index} · {trip.visit_code}</span><small>In {siteClockTime(trip.company_time_in)} · {trip.company_time_out ? `${trip.checkout_method === "TIME_LIMIT" ? "Timed out, exit unverified" : "Out"} ${siteClockTime(trip.company_time_out)}` : "Still in"}</small></div>)}</div>}
+      <div key={trip.id}><span>Trip {tripCount - index} · {trip.visit_code}</span><small>In {siteClockTime(trip.company_time_in)} · {trip.company_time_out ? `${trip.checkout_method === "TIME_LIMIT" ? "Timer ended, exit unverified" : trip.checkout_method === "TIME_LIMIT_VERIFIED" ? "Timer ended, exit verified" : "Out"} ${siteClockTime(trip.company_time_out)}` : "Still in"}</small></div>)}</div>}
     {error && <div className="notice error">{error}</div>}
     {scanning && <Scanner title="Scan today's site QR" onScan={onScan} onClose={() => setScanning(false)}/>}
   </section>;

@@ -69,6 +69,7 @@ Administrators can export complete CSV files for drivers, lorries, companies, vi
 5. The first valid fix outside the site-entry radius marks the visit as leaving. A valid fix beyond the configured checkout distance after the confirmation period completes it. A return inside the site-entry radius cancels the pending exit. The MKSS production site uses a 300 m entry radius and a 5 km checkout distance.
 6. The live movement board polls every 3 seconds while open, shows every open driver and lorry visit plus GPS freshness, and lists completed exits. Other dashboard sections poll every 10 seconds; timers update every second. The cron worker flags visits exceeding the configured threshold as delayed.
 7. Visit history and today's reports can be exported as CSV. Microsoft Excel sync is paused; Supabase continues collecting records and CSV exports are available.
+8. A trip that ends by timer remains flagged until an admin confirms physical exit. On **Live vehicle board → Trip exceptions**, **Verify exit** records the admin and verification time in the audit trail without replacing the original timer time. **Review** remains available for corrections when the actual observed exit time is known.
 
 ## Deployment
 

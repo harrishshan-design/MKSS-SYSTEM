@@ -7,6 +7,7 @@ import { siteDateTime } from "@/lib/date";
 
 export type ExceptionVisit = {
   id: string; visit_code: string; status: string; company_time_in: string | null;
+  company_time_out?: string | null; exit_verified_at?: string | null;
   last_location_at: string | null; exit_pending_at: string | null;
   checkout_method: string | null;
   lorries?: { registration_number: string } | null;
@@ -41,8 +42,21 @@ export default function ExceptionsPanel({ visits, now, refresh }: { visits: Exce
     finally { setBusy(false); }
   }
 
+  async function verifyExit(visit: ExceptionVisit) {
+    if (!window.confirm(`Have you confirmed that ${visit.lorries?.registration_number || visit.visit_code} physically left the site? MKSS will record when you verified it and keep the original timer time.`)) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const result = await api<{ exit_verified_at: string }>("verify-exit", {
+        method: "POST", body: JSON.stringify({ visit_id: visit.id }),
+      });
+      setMessage(`${visit.visit_code}: physical exit verified at ${siteDateTime(result.exit_verified_at)}. The timer time was kept separately.`);
+      await refresh();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setBusy(false); }
+  }
+
   return <section className="panel exception-panel"><div className="panel-head"><div><span className="eyebrow">NEEDS HUMAN REVIEW</span><h2>Trip exceptions</h2></div><strong>{exceptions.length}</strong></div><p>Missing GPS does not prove an exit. Confirm what happened before recording a correction.</p>{message&&<div className="notice success"><Check size={16}/>{message}</div>}{error&&!selected&&<div className="notice error">{error}</div>}
-    {exceptions.length ? <div className="exception-list">{exceptions.map(visit => <div className="exception-row" key={visit.id}><div><strong>{visit.lorries?.registration_number || "Vehicle"} · {visit.visit_code}</strong><span>{visit.drivers?.full_name || "Driver"} · {visit.checkout_method === "TIME_LIMIT" ? "Timer ended · physical exit unverified" : visit.status === "LEAVING" ? "Exit pending" : visit.last_location_at ? `Last GPS ${siteDateTime(visit.last_location_at)}` : "No GPS received"}</span></div><button className="button secondary" onClick={() => { setSelected(visit); setAction(visit.company_time_in ? "checkout" : "correct_entry"); setReason(""); setTime(""); setError(""); }}>Review</button></div>)}</div> : <p className="muted">No trips need review.</p>}
+    {exceptions.length ? <div className="exception-list">{exceptions.map(visit => <div className="exception-row" key={visit.id}><div><strong>{visit.lorries?.registration_number || "Vehicle"} · {visit.visit_code}</strong><span>{visit.drivers?.full_name || "Driver"} · {visit.checkout_method === "TIME_LIMIT" ? "Timer ended · physical exit unverified" : visit.status === "LEAVING" ? "Exit pending" : visit.last_location_at ? `Last GPS ${siteDateTime(visit.last_location_at)}` : "No GPS received"}</span></div><div className="exception-actions">{visit.checkout_method === "TIME_LIMIT"&&<button className="button primary" disabled={busy} onClick={() => void verifyExit(visit)}><Check size={16}/> Verify exit</button>}<button className="button secondary" disabled={busy} onClick={() => { setSelected(visit); setAction(visit.checkout_method === "TIME_LIMIT" ? "correct_exit" : visit.company_time_in ? "checkout" : "correct_entry"); setReason(""); setTime(""); setError(""); }}>Review</button></div></div>)}</div> : <p className="muted">No trips need review.</p>}
     {selected&&<div className="modal-backdrop"><div className="modal"><div className="modal-header"><div><span className="eyebrow">AUDITED OVERRIDE</span><h2>{selected.visit_code}</h2></div><button className="icon-button" onClick={()=>setSelected(null)}><X size={20}/></button></div><div className="notice"><AlertTriangle size={17}/> Check the gate log or physical vehicle before changing this trip.</div><form className="exception-form" onSubmit={submit}><label>Action<select value={action} onChange={event=>setAction(event.target.value as typeof action)}><option value="checkout">Confirm exit now</option><option value="correct_exit">Record observed exit time</option><option value="correct_entry">Correct gate entry time</option>{selected.status!=="COMPLETED"&&<option value="cancel">Cancel duplicate or invalid trip</option>}</select></label>{(action==="correct_exit"||action==="correct_entry")&&<label>Observed time<input required type="datetime-local" value={time} onChange={event=>setTime(event.target.value)}/></label>}<label>Reason and evidence<textarea required minLength={8} maxLength={500} value={reason} onChange={event=>setReason(event.target.value)} placeholder="e.g. Guard verified plate at exit gate at 14:32"/></label>{error&&<div className="notice error">{error}</div>}<button className="button primary full" disabled={busy}>{busy?<Loader2 size={17} className="spin"/>:<Check size={17}/>} Save audited correction</button></form></div></div>}
   </section>;
 }
