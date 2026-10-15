@@ -10,7 +10,7 @@ const maxRows = 50_000;
 const resources: Resource[] = ["visits", "drivers", "lorries", "companies"];
 const selects: Record<Resource, string> = {
   visits: "*,drivers(full_name),lorries(registration_number,vehicle_type),companies(name),security_guards(full_name)",
-  drivers: "id,driver_code,full_name,identity_reference,phone,licence_number,active,created_at,companies(name)",
+  drivers: "id,driver_code,full_name,identity_reference,phone,licence_number,default_trip_type,active,created_at,companies(name)",
   lorries: "id,lorry_code,registration_number,vehicle_type,active,created_at,companies(name),drivers(full_name)",
   companies: "id,company_code,name,contact_person,phone,email,active,created_at",
 };
@@ -26,8 +26,8 @@ function document(resource: Resource, rows: Row[]): string {
     rows.map(row => [row.visit_code, row.visit_date, related(row, "drivers", "full_name"), related(row, "companies", "name"), related(row, "lorries", "registration_number"), related(row, "lorries", "vehicle_type"), related(row, "security_guards", "full_name"), row.purpose, row.status, csvMalaysiaDateTime(row.security_registered_at), csvMalaysiaDateTime(row.company_time_in), csvMalaysiaDateTime(row.loading_area_in), csvMalaysiaDateTime(row.loading_area_out), csvMalaysiaDateTime(row.company_time_out), csvMalaysiaDateTime(row.exit_verified_at), row.total_duration_seconds, row.checkout_method === "TIME_LIMIT_VERIFIED" ? "Timer ended · physical exit verified" : row.checkout_method === "TIME_LIMIT" ? "Timer ended · exit unverified" : row.checkout_method === "GATE" ? "Gate scan" : row.checkout_method === "ADMIN" ? "Admin correction" : row.checkout_method]),
   );
   if (resource === "drivers") return csvDocument(
-    ["Driver ID", "Driver code", "Name", "IC number", "Phone", "Driving licence", "Company", "Active", "Created at (MYT)"],
-    rows.map(row => [row.id, row.driver_code, row.full_name, row.identity_reference, row.phone, row.licence_number, related(row, "companies", "name"), row.active, csvMalaysiaDateTime(row.created_at)]),
+    ["Driver ID", "Driver code", "Name", "IC number", "Phone", "Driving licence", "Company", "Trip type", "Active", "Created at (MYT)"],
+    rows.map(row => [row.id, row.driver_code, row.full_name, row.identity_reference, row.phone, row.licence_number, related(row, "companies", "name"), row.default_trip_type, row.active, csvMalaysiaDateTime(row.created_at)]),
   );
   if (resource === "lorries") return csvDocument(
     ["Lorry ID", "Lorry code", "Vehicle number", "Vehicle type", "Company", "Assigned driver", "Active", "Created at (MYT)"],

@@ -57,7 +57,7 @@ export default function RegistrationRequests({ onChanged }: { onChanged?: () => 
     setSaving(request.id); setError(""); setMessage("");
     try {
       await api("signup/approve", { method: "POST", body: JSON.stringify({ request_id: request.id }) });
-      setMessage(`${request.full_name} can now sign in and scan the daily QR with vehicle ${request.requested_lorry}.`);
+      setMessage(`${request.full_name} can now sign in and scan the daily QR with vehicle ${request.requested_lorry}. You can correct the type later in Drivers → Edit type.`);
       await refresh();
       onChanged?.();
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
