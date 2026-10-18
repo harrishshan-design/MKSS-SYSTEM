@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Check, KeyRound, Loader2, Mail, RefreshCw } from "lucide-react";
 import { api } from "@/lib/client-api";
+import PasswordInput from "@/components/PasswordInput";
 
 type DriverAccount = {
   id: string; name: string; email: string; active: boolean;
@@ -61,8 +62,8 @@ export default function DriverAccounts() {
       <h3>{kind === "email" ? `Edit ${selected.name}'s email` : `Set ${selected.name}'s password`}</h3>
       {kind === "email" ? <label>New sign-in email<input type="email" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)}/></label> : <>
         <p>Use a unique password of at least 12 characters. The driver can sign in with it immediately.</p>
-        <label>New password<input type="password" required minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)}/></label>
-        <label>Confirm new password<input type="password" required minLength={12} maxLength={128} autoComplete="new-password" value={confirm} onChange={event => setConfirm(event.target.value)}/></label>
+        <label>New password<PasswordInput required minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)}/></label>
+        <label>Confirm new password<PasswordInput required minLength={12} maxLength={128} autoComplete="new-password" value={confirm} onChange={event => setConfirm(event.target.value)}/></label>
       </>}
       <div className="registration-controls"><button className="button primary" disabled={saving}>{saving && <Loader2 className="spin" size={16}/>} {kind === "email" ? "Save email" : "Reset password"}</button><button type="button" className="button secondary" onClick={close}>Cancel</button></div>
     </form>}
