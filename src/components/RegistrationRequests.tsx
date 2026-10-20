@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Check, Loader2, Pencil, RefreshCw } from "lucide-react";
 import { api } from "@/lib/client-api";
+import type { TripType } from "@/lib/trip-type";
 import { siteDateTime } from "@/lib/date";
 
 type Request = {
@@ -13,7 +14,7 @@ type Request = {
   phone: string;
   requested_company: string;
   has_driving_licence: boolean | null;
-  trip_type: "Hantar Barang" | "Ambil Barang" | "Manual" | null;
+  trip_type: TripType | null;
   requested_lorry: string | null;
   requested_vehicle_type: string | null;
   created_at: string;
@@ -81,7 +82,7 @@ export default function RegistrationRequests({ onChanged }: { onChanged?: () => 
           <label>Company name<input required maxLength={120} value={draft.requested_company} onChange={event => setDraft({ ...draft, requested_company: event.target.value })}/></label>
           <label>Vehicle number<input required minLength={2} maxLength={40} value={draft.requested_lorry || ""} onChange={event => setDraft({ ...draft, requested_lorry: event.target.value })}/></label>
           <label>Driving licence<select required value={draft.has_driving_licence === null ? "" : draft.has_driving_licence ? "yes" : "no"} onChange={event => setDraft({ ...draft, has_driving_licence: event.target.value === "" ? null : event.target.value === "yes" })}><option value="">Select Yes or No</option><option value="yes">Yes</option><option value="no">No</option></select></label>
-          <label>Type<select required value={draft.trip_type || ""} onChange={event => setDraft({ ...draft, trip_type: event.target.value as Request["trip_type"] })}><option value="">Select type</option><option value="Hantar Barang">Hantar Barang · 30 min</option><option value="Ambil Barang">Ambil Barang · 30 min</option><option value="Manual">Manual · 2 hours</option></select></label>
+          <label>Type<select required value={draft.trip_type || ""} onChange={event => setDraft({ ...draft, trip_type: event.target.value as Request["trip_type"] })}><option value="">Select type</option><option value="Hantar Barang">Hantar Barang · 30 min</option><option value="Ambil Barang">Ambil Barang · 30 min</option><option value="Manual">Manual · 2 hours</option><option value="Tank Farm">Tank Farm · 2 hours</option><option value="RORO Biru">RORO Biru · 30 min</option><option value="RORO Oren">RORO Oren · 30 min</option></select></label>
         </div>
         <div className="registration-controls"><button className="button primary" disabled={!!saving}>{saving === request.id && <Loader2 className="spin" size={16}/>} Save corrections</button><button type="button" className="button secondary" onClick={() => setDraft(null)}>Cancel</button></div>
       </form> : <div className="registration-controls"><button className="button secondary" disabled={!!saving} onClick={() => { setDraft(request); setError(""); }}><Pencil size={16}/> Edit details</button><button className="button primary" disabled={!!saving || request.has_driving_licence === null || !request.trip_type || !request.requested_lorry} onClick={() => approve(request)}>{saving === request.id ? <Loader2 className="spin" size={16}/> : <ArrowRight size={16}/>} Approve driver</button></div>}

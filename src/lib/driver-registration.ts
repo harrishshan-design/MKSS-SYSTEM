@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TRIP_TYPES } from "./trip-type";
 
 export const driverDetails = z.object({
   email: z.string().trim().pipe(z.email().max(254)).transform(value => value.toLowerCase()),
@@ -8,7 +9,7 @@ export const driverDetails = z.object({
   requested_company: z.string().trim().min(2).max(120),
   requested_lorry: z.string().trim().min(2).max(40).transform(value => value.toUpperCase()),
   has_driving_licence: z.boolean(),
-  trip_type: z.enum(["Hantar Barang", "Ambil Barang", "Manual"]),
+  trip_type: z.enum(TRIP_TYPES),
 });
 
 export const signup = driverDetails;

@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { api } from "@/lib/client-api";
 import QRCodeView from "@/components/QRCode";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 type Pass = { id: string; full_name: string; qr_active: boolean; pass_code: string | null };
 
@@ -15,7 +16,8 @@ export default function AdminDriverPass({ driverId, name, onClose }: { driverId:
     try { setPass(await api<Pass>(`qr?driver_id=${driverId}`)); setError(""); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }, [driverId]);
-  useEffect(() => { void load(); const timer = setInterval(load, 10_000); return () => clearInterval(timer); }, [load]);
+  // Keep the rotating pass fresh without restoring fast dashboard polling.
+  useLiveRefresh(load, { resources: ["drivers"], intervalMs: 20_000 });
   async function update(active: boolean) {
     setBusy(true); setError("");
     try { await api("qr", { method: "POST", body: JSON.stringify({ driver_id: driverId, active }) }); await load(); }

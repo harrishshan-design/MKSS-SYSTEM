@@ -10,7 +10,7 @@ type Registration = {
   full_name: string;
   requested_company: string;
   requested_lorry: string | null;
-  trip_type: "Hantar Barang" | "Ambil Barang" | "Manual" | null;
+  trip_type: "Hantar Barang" | "Ambil Barang" | "Manual" | "Tank Farm" | "RORO Biru" | "RORO Oren" | null;
 };
 
 export function Login({ error }: { error: string }) {
@@ -78,7 +78,7 @@ export function Login({ error }: { error: string }) {
           <label>Company name<input required maxLength={120} value={form.requested_company} onChange={update("requested_company")}/></label>
           <label>Vehicle number<input required minLength={2} maxLength={40} autoCapitalize="characters" value={form.requested_lorry} onChange={update("requested_lorry")} placeholder="e.g. BPK 1234"/></label>
           <label>Driving license<select required value={form.has_driving_licence} onChange={update("has_driving_licence")}><option value="">Select Yes or No</option><option value="yes">Yes</option><option value="no">No</option></select></label>
-          <label>Type<select required value={form.trip_type} onChange={update("trip_type")}><option value="">Select type</option><option value="Hantar Barang">Hantar Barang · 30 min</option><option value="Ambil Barang">Ambil Barang · 30 min</option><option value="Manual">Manual · 2 hours</option></select></label>
+          <label>Type<select required value={form.trip_type} onChange={update("trip_type")}><option value="">Select type</option><option value="Hantar Barang">Hantar Barang · 30 min</option><option value="Ambil Barang">Ambil Barang · 30 min</option><option value="Manual">Manual · 2 hours</option><option value="Tank Farm">Tank Farm · 2 hours</option><option value="RORO Biru">RORO Biru · 30 min</option><option value="RORO Oren">RORO Oren · 30 min</option></select></label>
         </div>
         {message && <div className="notice error">{message}</div>}
         <button className="button primary full login-button" disabled={busy}>{busy && <Loader2 className="spin" size={18}/>}Request driver access <ArrowRight size={18}/></button>

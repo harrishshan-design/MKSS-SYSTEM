@@ -3,8 +3,7 @@
 import { useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
 import { api } from "@/lib/client-api";
-
-type TripType = "Hantar Barang" | "Ambil Barang" | "Manual";
+import type { TripType } from "@/lib/trip-type";
 
 export default function DriverTripTypeEditor({ driver, onClose, onSaved }: {
   driver: { id: string; full_name: string; default_trip_type: TripType | null };
@@ -40,6 +39,9 @@ export default function DriverTripTypeEditor({ driver, onClose, onSaved }: {
         <option value="Ambil Barang">Ambil Barang · loading · 30 min</option>
         <option value="Hantar Barang">Hantar Barang · unloading · 30 min</option>
         <option value="Manual">Manual loading · 2 hours</option>
+        <option value="Tank Farm">Tank Farm · 2 hours</option>
+        <option value="RORO Biru">RORO Biru · 30 min</option>
+        <option value="RORO Oren">RORO Oren · 30 min</option>
       </select></label>
       <div className="modal-actions"><button type="button" className="button secondary" onClick={onClose} disabled={saving}>Cancel</button>
         <button className="button primary" disabled={saving || !tripType}>{saving ? <Loader2 className="spin" size={16}/> : <Check size={16}/>} Save type</button></div>

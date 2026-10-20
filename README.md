@@ -63,13 +63,25 @@ Administrators can export complete CSV files for drivers, lorries, companies, vi
 ## Visit flow
 
 1. MKSS generates one daily site QR at midnight Malaysia time, or when an admin first opens **Daily site QR & attendance** that day. After signing up and being approved once, a driver signs in and scans this QR each day. In one database transaction, MKSS saves attendance and opens a visit for the assigned lorry (unless an active visit already exists). The same day's repeat scan displays the existing check-in. The admin can review and export check-ins as CSV. Guards use the site QR separately for their shift attendance.
-2. A guard can also scan the driver's permanent QR to register the lorry. Duplicate active visits are blocked.
+2. A guard can also scan the driver's rotating pass to register the lorry. Duplicate active visits are blocked.
 3. While the driver's PWA is open, an active visit starts location monitoring and may prompt for location permission. A valid GPS fix inside the company radius records `company_time_in`.
 4. If configured, loading-zone entry and exit record their timestamps and duration.
-5. The first valid fix outside the site-entry radius marks the visit as leaving. A valid fix beyond the configured checkout distance after the confirmation period completes it. A return inside the site-entry radius cancels the pending exit. The MKSS production site uses a 300 m entry radius and a 5 km checkout distance.
-6. The live movement board polls every 3 seconds while open, shows every open driver and lorry visit plus GPS freshness, and lists completed exits. Other dashboard sections poll every 10 seconds; timers update every second. The cron worker flags visits exceeding the configured threshold as delayed.
+5. The first valid fix outside the site-entry radius marks the visit as leaving. A valid fix beyond the configured checkout distance after the confirmation period completes it. A return inside the site-entry radius cancels the pending exit. Administrators configure these boundaries in Site Settings.
+6. Live boards, reports, check-ins, and approval alerts refresh after private Supabase Realtime change notices, with a 60-second backup refresh. Hidden tabs pause fetches and reconcile when visible or back online. Local display timers update every second without network traffic. The cron worker flags visits exceeding the configured threshold as delayed.
 7. Visit history and today's reports can be exported as CSV. Microsoft Excel sync is paused; Supabase continues collecting records and CSV exports are available.
 8. A trip that ends by timer remains flagged until an admin confirms physical exit. On **Live vehicle board → Trip exceptions**, **Verify exit** records the admin and verification time in the audit trail without replacing the original timer time. **Review** remains available for corrections when the actual observed exit time is known.
+
+## Live refresh and database rollout
+
+Apply the `add_roro_and_tank_farm_trip_types` and `operations_realtime_and_snapshot` migrations before deploying their frontend. The latter adds `operations_snapshot(date)`, restricted to the service role, replacing seven overview Data API reads with one consistent snapshot. The overview API retains its legacy read path if the RPC is missing during a staged rollout.
+
+Realtime channels are private. Active admins, monitors, and guards can receive operations notices; drivers can receive only their own driver topic. Notices contain only a resource category, never record contents or QR secrets. Existing authorized API routes fetch all business data. Browser publishing has no RLS policy. GPS-only database updates do not broadcast, and client event bursts are batched with a maximum of one reload per screen per two seconds. A notification failure does not roll back a saved trip.
+
+Rotating driver passes require shorter refreshes: the driver screen refreshes at 30 seconds and an open admin pass at 20 seconds. These preserve the pass's 30-second signing interval and previous-interval acceptance. GPS tracking keeps its existing sampling behavior; ordinary location heartbeats no longer trigger another full driver-profile/history fetch.
+
+Server requests verify signed tokens using the SDK's claims verifier and reusable signing-key cache. Projects using legacy symmetric signing may still require an Auth request. Every request continues to read the current active profile and role, so permissions are not cached across requests. No service key is sent to the browser.
+
+Run `supabase/tests/operations_realtime.sql` in the SQL Editor to verify snapshot counts, role isolation, all six trip deadlines, and GPS heartbeat suppression. Its fixtures use temporary tables and the transaction is rolled back. Confirm Realtime delivery with an authorized client, then compare API/Auth request rates and log ingestion over equivalent traffic windows. Timer reductions alone do not establish an 80–95% reduction in total log volume.
 
 ## Deployment
 

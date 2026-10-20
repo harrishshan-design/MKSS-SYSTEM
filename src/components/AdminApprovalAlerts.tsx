@@ -5,6 +5,7 @@ import { Bell, Loader2, Smartphone, X } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { siteDateTime } from "@/lib/date";
 import { pushKeyBytes, supportsPhonePush } from "@/lib/admin-push-client";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 type PendingRequest = {
   id: string;
@@ -66,18 +67,7 @@ export default function AdminApprovalAlerts({ onReview, onCountChange, refreshKe
     }
   }, [onCountChange]);
 
-  useEffect(() => {
-    void refresh();
-    const timer = window.setInterval(() => {
-      if (!document.hidden) void refresh();
-    }, 5000);
-    const onVisible = () => { if (!document.hidden) void refresh(); };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [refresh, refreshKey]);
+  useLiveRefresh(refresh, { resources: ["registrations"], resetKey: refreshKey });
 
   function review() {
     setOpen(false);

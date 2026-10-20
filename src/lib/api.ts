@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { adminClient, publicClient } from "@/lib/supabase";
-import type { Actor, Role } from "@/lib/types";
+import { adminClient, publicClient } from "./supabase";
+import type { Actor, Role } from "./types";
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
+// Dedicated verifier: reuse the SDK's signing-key cache without sharing a
+// sign-in client's mutable session across server requests.
+let tokenVerifier: ReturnType<typeof publicClient> | undefined;
 export function fail(error: unknown) {
   const status = error instanceof ApiError ? error.status : error instanceof ZodError ? 400 : 500;
   const firstIssue = error instanceof ZodError ? error.issues[0] : null;
@@ -18,10 +21,12 @@ export function fail(error: unknown) {
 export async function actor(req: NextRequest, allowed?: Role[]): Promise<Actor> {
   const token = req.headers.get("authorization")?.replace(/^Bearer /i, "");
   if (!token) throw new ApiError(401, "Sign in required");
-  const { data, error } = await publicClient().auth.getUser(token);
+  tokenVerifier ??= publicClient();
+  const { data, error } = await tokenVerifier.auth.getClaims(token);
   if (error && (error.name === "AuthRetryableFetchError" || (error.status ?? 0) >= 500)) throw new ApiError(503, "Sign-in service is temporarily unavailable. Please retry.");
-  if (error || !data.user) throw new ApiError(401, "Session expired. Sign in again.");
-  const { data: profile, error: profileError } = await adminClient().from("users").select("id,role,name,driver_id,guard_id,active").eq("id", data.user.id).single();
+  if (error || !data?.claims.sub || data.claims.role !== "authenticated") throw new ApiError(401, "Session expired. Sign in again.");
+  // Always read current access: role changes and deactivation apply immediately.
+  const { data: profile, error: profileError } = await adminClient().from("users").select("id,role,name,driver_id,guard_id,active").eq("id", data.claims.sub).single();
   if (profileError && profileError.code !== "PGRST116") throw new ApiError(503, "Database is temporarily unavailable. Please retry.");
   if (!profile?.active) throw new ApiError(403, "Account is inactive or has no assigned role");
   if (allowed && !allowed.includes(profile.role)) throw new ApiError(403, "Insufficient permission");

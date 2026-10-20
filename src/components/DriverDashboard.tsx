@@ -8,6 +8,7 @@ import { api } from "@/lib/client-api";
 import { siteClockTime, siteDate } from "@/lib/date";
 import { publicClient } from "@/lib/supabase";
 import type { Actor } from "@/lib/types";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 type DriverVisit = {
   id: string;
@@ -53,7 +54,8 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }, []);
 
-  useEffect(() => { void load(); const timer = setInterval(load, 15_000); return () => clearInterval(timer); }, [load]);
+  // This screen also displays a 30-second rotating driver pass.
+  useLiveRefresh(load, { topic: `mkss:driver:${actorInfo.driver_id}`, resources: ["visits", "drivers", "reference"], intervalMs: 30_000 });
 
   const sendPosition = useCallback(async (position: GeolocationPosition) => {
     const visitId = activeVisitIdRef.current;
@@ -76,7 +78,8 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
       } else {
         setMessage(`Location received at ${siteClockTime(result.visit.last_location_at)}.`);
       }
-      await load();
+      // Position-only heartbeats do not need another profile + visit query.
+      if (result.events.length) await load();
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : String(cause);
       if (!detail.includes("Stale location update")) setError(detail);

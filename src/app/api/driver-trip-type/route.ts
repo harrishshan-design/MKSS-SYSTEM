@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { actor, ApiError, audit, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
-import { tripDeadline } from "@/lib/trip-type";
+import { TRIP_TYPES, tripDeadline } from "@/lib/trip-type";
 
 const correction = z.object({
   driver_id: z.uuid(),
-  trip_type: z.enum(["Hantar Barang", "Ambil Barang", "Manual"]),
+  trip_type: z.enum(TRIP_TYPES),
 });
 
 type OpenVisit = {

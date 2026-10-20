@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Activity, Check, Clock3, Download, Loader2, RefreshCw, Truck } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { downloadCsv } from "@/lib/client-csv";
 import { siteDateTime } from "@/lib/date";
 import type { DailyReport } from "@/lib/reports";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 function duration(seconds: number) {
   return [Math.floor(seconds / 3600), Math.floor(seconds % 3600 / 60), Math.floor(seconds % 60)]
@@ -33,7 +34,7 @@ export default function ReportsDashboard() {
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { inFlight.current = false; setRefreshing(false); }
   }, []);
-  useEffect(() => { void refresh(); const timer = setInterval(refresh, 10_000); return () => clearInterval(timer); }, [refresh]);
+  useLiveRefresh(refresh, { resources: ["visits", "reference"] });
 
   async function download() {
     if (!report) return;

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { csvMalaysiaDateTime } from "@/lib/csv";
 import { siteDate, siteDateTime } from "@/lib/date";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
 
 type Checkin = { id: string; created_at: string; new_value: {
   date: string; site: string; driver: string; company: string; lorry: string;
@@ -32,16 +33,8 @@ export default function DriverCheckinRecords() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { if (!quiet) setLoading(false); }
   }, [from, to]);
-  useEffect(() => {
-    void load();
-    let inFlight = false;
-    const timer = setInterval(() => {
-      if (document.hidden || inFlight) return;
-      inFlight = true;
-      void load(true).finally(() => { inFlight = false; });
-    }, 3_000);
-    return () => clearInterval(timer);
-  }, [load]);
+  const refresh = useCallback(() => load(true), [load]);
+  useLiveRefresh(refresh, { resources: ["visits", "attendance"] });
 
   function download() {
     const lines = [["Date", "Attendance time (MYT)", "Driver", "Company", "Lorry", "Site", "Trips in", "Trips out"],
