@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useState } from "react";
+import { Users } from "lucide-react";
 import { api } from "@/lib/client-api";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import { WORK_TYPES } from "@/lib/contractors";
@@ -25,7 +26,8 @@ export default function Contractors({ summary = false, canEdit = false }: { summ
     const url = URL.createObjectURL(new Blob(["\uFEFF", rows.map(row => row.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a"); link.href = url; link.download = `mkss-contractors-${siteDate()}.csv`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  return <section className="panel settings-panel contractor-panel"><div className="row between"><div><span className="eyebrow">CONTRACTORS · SEPARATE ATTENDANCE</span><h2>{summary ? "Contractor overview" : "Contractors"}</h2><p>Contractor registrations and attendance are recorded separately from lorry trips.</p></div>{!summary && <button className="button secondary" onClick={exportAttendance} disabled={!data?.attendance.length}>Export today CSV</button>}</div>
+  if (summary) return <div className="metric"><div className="metric-icon green"><Users size={21}/></div><div className="metric-label">Contractor inside</div><div className="metric-value" aria-live="polite">{error ? "—" : data?.metrics.inside ?? "—"}</div><div className="metric-note" title={error || undefined}>{error ? "Connection unavailable" : "Clocked in today"}</div></div>;
+  return <section className="panel settings-panel contractor-panel"><div className="row between"><div><span className="eyebrow">CONTRACTORS · SEPARATE ATTENDANCE</span><h2>Contractors</h2><p>Contractor registrations and attendance are recorded separately from lorry trips.</p></div>{!summary && <button className="button secondary" onClick={exportAttendance} disabled={!data?.attendance.length}>Export today CSV</button>}</div>
     {error && <div className="notice error">{error}</div>}
     {!data ? <p>Loading contractors…</p> : <><div className="live-summary">{[["Registered", data.metrics.total], ["Pending approval", data.metrics.pending], ["Approved", data.metrics.approved], ["Inside today", data.metrics.inside]].map(([label, count]) => <div key={label}><strong>{count}</strong><span>{label}</span></div>)}</div>
       {!summary && <><input className="gate-search" aria-label="Search contractors" placeholder="Search contractor, company or work type" value={search} onChange={e => setSearch(e.target.value)}/>
