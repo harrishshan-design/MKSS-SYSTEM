@@ -26,7 +26,7 @@ export async function actor(req: NextRequest, allowed?: Role[]): Promise<Actor> 
   if (error && (error.name === "AuthRetryableFetchError" || (error.status ?? 0) >= 500)) throw new ApiError(503, "Sign-in service is temporarily unavailable. Please retry.");
   if (error || !data?.claims.sub || data.claims.role !== "authenticated") throw new ApiError(401, "Session expired. Sign in again.");
   // Always read current access: role changes and deactivation apply immediately.
-  const { data: profile, error: profileError } = await adminClient().from("users").select("id,role,name,driver_id,guard_id,active").eq("id", data.claims.sub).single();
+  const { data: profile, error: profileError } = await adminClient().from("users").select("id,role,name,driver_id,guard_id,contractor_id,active").eq("id", data.claims.sub).single();
   if (profileError && profileError.code !== "PGRST116") throw new ApiError(503, "Database is temporarily unavailable. Please retry.");
   if (!profile?.active) throw new ApiError(403, "Account is inactive or has no assigned role");
   if (allowed && !allowed.includes(profile.role)) throw new ApiError(403, "Insufficient permission");

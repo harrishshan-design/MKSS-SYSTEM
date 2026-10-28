@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight, Check, Loader2, LogOut, Radio, ShieldCheck, Truck } from "lucide-react";
 import { publicClient } from "@/lib/supabase";
 import PasswordInput from "@/components/PasswordInput";
+import ContractorSignup from "@/components/ContractorSignup";
 
 type Registration = {
   status: "PENDING" | "APPROVED" | "REJECTED";
@@ -14,7 +15,8 @@ type Registration = {
 };
 
 export function Login({ error }: { error: string }) {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "contractor">("signin");
+  const [contractorLogin, setContractorLogin] = useState(false);
   const [identifier, setIdentifier] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,11 +31,11 @@ export function Login({ error }: { error: string }) {
   async function signIn(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setMessage("");
     try {
-      if (identifier.includes("@")) {
+      if (!contractorLogin && identifier.includes("@")) {
         const { error: signInError } = await publicClient().auth.signInWithPassword({ email: identifier.trim(), password });
         if (signInError) setMessage(signInError.message);
       } else {
-        const response = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" },
+        const response = await fetch(contractorLogin ? "/api/contractors/login" : "/api/login", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ vehicle: identifier, password }) });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Sign-in failed");
@@ -67,8 +69,9 @@ export function Login({ error }: { error: string }) {
   return <div className="login-shell">
     <div className="login-side"><div className="brand light"><div className="brand-symbol"><Truck size={24}/></div><div><strong>MKSS</strong><span>SYSTEM</span></div></div><div className="login-side-content"><div className="eyebrow light-text">SMARTER SITE MOVEMENT</div><h1>Every vehicle.<br/>Every movement.<br/><em>In full view.</em></h1><p>One clear system for lorry arrivals, guard attendance and automatic site records.</p><div className="login-stat"><Radio size={18}/> Live operations, connected across your site</div></div><div className="login-side-foot">MKSS SYSTEM · Operations platform</div></div>
     <div className="login-panel"><div className="login-form"><div className="mobile-login-brand"><Truck size={25}/> MKSS SYSTEM</div>
-      {complete ? <><span className="eyebrow">REQUEST RECEIVED</span><h2>Waiting for admin approval</h2><p>Your registration is with the administrator. No email confirmation is needed. Sign in with your email or vehicle number and IC number to check its status.</p><button className="button secondary full" onClick={() => { setMode("signin"); setComplete(false); setIdentifier(signupEmail || form.requested_lorry); }}>Back to sign in <ArrowRight size={16}/></button></>
-      : mode === "signin" ? <><span className="eyebrow">WELCOME BACK</span><h2>Sign in to your workspace</h2><p>Drivers use an email or vehicle number, with their IC number as the password.</p><form onSubmit={signIn}><label>Email address or vehicle number<input type="text" autoComplete="username" required value={identifier} onChange={event => setIdentifier(event.target.value)} placeholder="you@company.com or BPK 1234"/></label><label>Password (IC number for drivers)<PasswordInput autoComplete="current-password" required value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password"/></label>{(message || error) && <div className="notice error">{message || error}</div>}<button className="button primary full login-button" disabled={busy}>{busy && <Loader2 className="spin" size={18}/>}Sign in <ArrowRight size={18}/></button></form><button className="auth-switch" onClick={() => { setMode("signup"); setMessage(""); }}>New driver? Create an account <ArrowRight size={16}/></button><div className="login-note"><ShieldCheck size={17}/> Admin and guard access is assigned by your site administrator</div></>
+      {mode === "contractor" ? <ContractorSignup onBack={() => { setMode("signin"); setMessage(""); }} onSignIn={ic => { setIdentifier(ic); setPassword(""); setContractorLogin(true); setMode("signin"); }}/>
+      : complete ? <><span className="eyebrow">REQUEST RECEIVED</span><h2>Waiting for admin approval</h2><p>Your registration is with the administrator. No email confirmation is needed. Sign in with your email or vehicle number and IC number to check its status.</p><button className="button secondary full" onClick={() => { setMode("signin"); setComplete(false); setIdentifier(signupEmail || form.requested_lorry); }}>Back to sign in <ArrowRight size={16}/></button></>
+      : mode === "signin" ? <><span className="eyebrow">WELCOME BACK</span><h2>Sign in to your workspace</h2><p>Drivers use email or vehicle number with their IC password. Contractors select Contractor and use their IC number as both sign-in ID and initial password.</p><form onSubmit={signIn}><label>Sign in as<select value={contractorLogin ? "contractor" : "staff"} onChange={e => { setContractorLogin(e.target.value === "contractor"); setIdentifier(""); setPassword(""); setMessage(""); }}><option value="staff">Driver / Staff</option><option value="contractor">Contractor</option></select></label><label>{contractorLogin ? "Contractor IC number" : "Email address or vehicle number"}<input type="text" autoComplete="username" required value={identifier} onChange={event => setIdentifier(event.target.value)} placeholder={contractorLogin ? "Your 12-digit IC number" : "you@company.com or BPK 1234"}/></label><label>Password (IC number for drivers)<PasswordInput autoComplete="current-password" required value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password"/></label>{(message || error) && <div className="notice error">{message || error}</div>}<button className="button primary full login-button" disabled={busy}>{busy && <Loader2 className="spin" size={18}/>}Sign in <ArrowRight size={18}/></button></form><button className="auth-switch" onClick={() => { setMode("signup"); setMessage(""); }}>New driver? Create an account <ArrowRight size={16}/></button><button className="auth-switch" onClick={() => { setMode("contractor"); setMessage(""); }}>New contractor sign up <ArrowRight size={16}/></button><div className="login-note"><ShieldCheck size={17}/> Admin and guard access is assigned by your site administrator</div></>
       : <><button className="auth-back" onClick={() => { setMode("signin"); setMessage(""); }}><ArrowLeft size={16}/> Back to sign in</button><span className="eyebrow">DRIVER REGISTRATION</span><h2>Create a driver account</h2><p>Enter your email and driver details once. You can sign in later with your email or vehicle number.</p><form onSubmit={signUp} className="signup-form">
         <div className="signup-group"><strong>Driver details</strong>
           <label>Name<input required autoComplete="name" maxLength={120} value={form.full_name} onChange={update("full_name")}/></label>

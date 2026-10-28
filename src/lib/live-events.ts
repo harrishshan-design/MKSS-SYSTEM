@@ -3,7 +3,7 @@
 import { publicClient } from "./supabase";
 
 export const OPERATIONS_TOPIC = "mkss:operations";
-export type LiveResource = "visits" | "attendance" | "drivers" | "registrations" | "reference";
+export type LiveResource = "visits" | "attendance" | "drivers" | "registrations" | "reference" | "contractors";
 type Listener = (resource: LiveResource | null) => void;
 type Entry = { channel: ReturnType<ReturnType<typeof publicClient>["channel"]>; listeners: Set<Listener> };
 const channels = new Map<string, Entry>();

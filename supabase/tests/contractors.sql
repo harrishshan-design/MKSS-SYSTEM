@@ -1,0 +1,41 @@
+-- Transactional fixtures only; no test accounts or attendance are retained.
+begin isolation level repeatable read;
+do $$
+declare test_user uuid:=gen_random_uuid(); person uuid; admin_id uuid; first_scan public.contractor_attendance; second_scan public.contractor_attendance; trips_before bigint;
+begin
+ select count(*) into trips_before from public.visits;
+ insert into auth.users(id) values(test_user);
+ person:=public.register_contractor(test_user,'Rollback contractor fixture','000000000000','Temporary verification','IT');
+ if (select role::text from public.users where id=test_user)<>'contractor' then raise exception 'Contractor role missing'; end if;
+ begin
+  perform public.scan_contractor_attendance(test_user,'Test gate','in');
+  raise exception 'Pending contractor was allowed to scan';
+ exception when others then
+  if sqlerrm <> 'Admin approval is required before attendance' then raise; end if;
+ end;
+ select id into admin_id from public.users where role='admin' and active limit 1;
+ if admin_id is null then raise exception 'No active administrator for test'; end if;
+ perform public.review_contractor(admin_id,person,'Rollback contractor fixture','Temporary verification','Safety','APPROVED');
+ first_scan:=public.scan_contractor_attendance(test_user,'Test gate','in');
+ second_scan:=public.scan_contractor_attendance(test_user,'Test gate','in');
+ if first_scan.id<>second_scan.id then raise exception 'Duplicate attendance created'; end if;
+ if first_scan.time_in<clock_timestamp()-interval '5 seconds' then raise exception 'Attendance did not use actual database time'; end if;
+ begin
+  perform public.scan_contractor_attendance(test_user,'Test gate','out');
+  raise exception 'Accidental immediate checkout was accepted';
+ exception when others then
+  if sqlerrm <> 'Already clocked in. Wait one minute before clocking out' then raise; end if;
+ end;
+ update public.contractor_attendance set time_in=clock_timestamp()-interval '2 minutes' where id=first_scan.id;
+ second_scan:=public.scan_contractor_attendance(test_user,'Test gate','out');
+ if second_scan.time_out is null then raise exception 'Checkout not saved'; end if;
+ if (public.scan_contractor_attendance(test_user,'Test gate','out')).time_out<>second_scan.time_out then raise exception 'Repeated checkout changed timestamp'; end if;
+ perform set_config('request.jwt.claim.sub',test_user::text,true);
+ if not mkss_private.can_receive_changes('mkss:contractor:'||person::text)
+  or mkss_private.can_receive_changes('mkss:operations') or mkss_private.can_receive_changes('mkss:driver:'||person::text) then raise exception 'Contractor channel isolation failed'; end if;
+ if (select count(*) from public.visits)<>trips_before then raise exception 'Contractor scan changed lorry visits'; end if;
+ if has_table_privilege('anon','public.contractors','select') or has_table_privilege('authenticated','public.contractors','insert')
+ or has_function_privilege('authenticated','public.scan_contractor_attendance(uuid,text,text)','execute') then raise exception 'Contractor data is directly exposed'; end if;
+end; $$;
+rollback;
+select 'PASS: contractor approval, actual timestamps, duplicate scans, isolated channels and no lorry trips' as verification;
