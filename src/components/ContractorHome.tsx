@@ -24,7 +24,7 @@ export default function ContractorHome({ actorInfo }: { actorInfo: Actor }) {
     <main className="driver-content"><span className="eyebrow">CONTRACTOR ATTENDANCE</span><h1>Hello, {actorInfo.name.split(" ")[0]}.</h1>
       {error && <div className="notice error">{error}</div>}
       {data ? <><p>{data.person.company_name} · {data.person.work_type}</p>
-        {data.person.status !== "APPROVED" ? <div className="panel pad"><h2>{data.person.status === "PENDING" ? "Awaiting admin approval" : "Registration needs admin review"}</h2><p>Status: {data.person.status}. Contact your site administrator before recording attendance.</p></div>
+        {data.person.status !== "APPROVED" ? <div className="panel pad"><h2>{data.person.status === "PENDING" ? "Awaiting admin approval" : "Account unavailable"}</h2><p>Status: {data.person.status}. Contact your site administrator before recording attendance.</p></div>
         : <div className="location-card"><h2>{data.attendance?.time_out ? "Attendance completed today" : data.attendance ? "You are clocked in" : "Scan the site QR to clock in"}</h2>
           <p>Use the same daily or backup site QR displayed for drivers.</p><div className="trip-steps"><div><span>Time in</span><strong>{siteClockTime(data.attendance?.time_in)}</strong></div><div><span>Time out</span><strong>{siteClockTime(data.attendance?.time_out)}</strong></div></div>
           {!data.attendance?.time_out && <button className="button primary full" disabled={busy} onClick={() => setScanning(true)}><QrCode size={20}/>{busy ? "Saving…" : `Scan QR to clock ${action}`}</button>}
