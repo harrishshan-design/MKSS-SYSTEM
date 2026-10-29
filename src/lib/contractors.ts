@@ -7,3 +7,10 @@ export const contractorDetails = z.object({
   work_type: z.enum(WORK_TYPES),
 });
 export const contractorSignup = contractorDetails.extend({ identity_reference: contractorIc });
+export const contractorAttendanceScan = z.object({
+  token: z.string().max(160), action: z.enum(["in", "out"]),
+  pass_id: z.string().trim().max(80, "Pass ID must be 80 characters or fewer").optional(),
+}).superRefine((value, ctx) => {
+  if (value.action === "in" && !value.pass_id)
+    ctx.addIssue({ code: "custom", path: ["pass_id"], message: "Enter your Pass ID before clocking in" });
+});
