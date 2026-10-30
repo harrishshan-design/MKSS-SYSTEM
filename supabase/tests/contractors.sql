@@ -5,7 +5,7 @@ declare test_user uuid:=gen_random_uuid(); person uuid; admin_id uuid; first_sca
 begin
  select count(*) into trips_before from public.visits;
  insert into auth.users(id) values(test_user);
- person:=public.register_contractor(test_user,'Rollback contractor fixture','000000000000','Temporary verification','IT');
+ person:=public.register_contractor(test_user,'Rollback contractor fixture','000000','Temporary verification','IT');
  if (select role::text from public.users where id=test_user)<>'contractor' then raise exception 'Contractor role missing'; end if;
  if (select status from public.contractors where id=person)<>'APPROVED' then raise exception 'Self registration is not immediately active'; end if;
  begin

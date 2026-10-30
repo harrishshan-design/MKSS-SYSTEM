@@ -36,7 +36,7 @@ export default function Contractors({ summary = false, canEdit = false }: { summ
     </>}
     {draft && <div className="modal-backdrop"><div className="modal"><h2>Edit contractor</h2>{error && <div className="notice error">{error}</div>}<form className="form-grid" onSubmit={save}>
       <label>Name<input required minLength={2} maxLength={120} value={draft.full_name} onChange={e => setDraft({ ...draft, full_name: e.target.value })}/></label>
-      <label>IC number<input readOnly value={draft.identity_reference || "Restricted"}/></label>
+      <label>IC Number/Passport Number<input readOnly value={draft.identity_reference || "Restricted"}/></label>
       <label>Company name<input required minLength={2} maxLength={120} value={draft.company_name} onChange={e => setDraft({ ...draft, company_name: e.target.value })}/></label>
       <label>Work type<select value={draft.work_type} onChange={e => setDraft({ ...draft, work_type: e.target.value })}>{WORK_TYPES.map(type => <option key={type}>{type}</option>)}</select></label>
       <label>Status<select value={draft.status} onChange={e => setDraft({ ...draft, status: e.target.value })}>{["PENDING", "APPROVED", "REJECTED", "INACTIVE"].map(s => <option key={s}>{s}</option>)}</select></label>

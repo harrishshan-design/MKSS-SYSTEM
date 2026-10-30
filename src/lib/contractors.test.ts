@@ -6,6 +6,14 @@ describe("separate contractor registration", () => {
     expect(contractorIc.parse("900101-10-1234")).toBe("900101101234");
     for (const work_type of WORK_TYPES) expect(contractorSignup.parse({ ...valid, work_type }).work_type).toBe(work_type);
   });
+  it("accepts 6–12 digit IC/passport numbers and rejects values outside the range", () => {
+    for (let length = 6; length <= 12; length++) {
+      const identity_reference = "0" + "1".repeat(length - 1);
+      expect(contractorSignup.parse({ ...valid, identity_reference }).identity_reference).toBe(identity_reference);
+    }
+    for (const value of ["12345", "1234567890123", "ABC123", "12345.6"])
+      expect(contractorIc.safeParse(value).success).toBe(false);
+  });
   it("requires all requested fields and rejects driver trip types", () => {
     for (const key of Object.keys(valid)) expect(contractorSignup.safeParse({ ...valid, [key]: "" }).success).toBe(false);
     expect(contractorSignup.safeParse({ ...valid, work_type: "Ambil Barang" }).success).toBe(false);
