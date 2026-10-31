@@ -28,9 +28,9 @@ export async function queueApprovalPush(requestId: string) {
     .select("id,admin_id").in("admin_id", admins.map(admin => admin.id));
   if (subscriptionError) throw subscriptionError;
   if (!subscriptions?.length) return 0;
-  const { error } = await db.from("admin_push_deliveries").insert(subscriptions.map(subscription => ({
-    request_id: requestId, subscription_id: subscription.id,
-  })));
+  const { error } = await db.from("admin_push_deliveries").upsert(subscriptions.map(subscription => ({
+    request_id: requestId, subscription_id: subscription.id, status: "pending", attempts: 0, last_error: null, sent_at: null, next_attempt_at: new Date().toISOString(),
+  })), { onConflict: "request_id,subscription_id" });
   if (error) throw error;
   return subscriptions.length;
 }

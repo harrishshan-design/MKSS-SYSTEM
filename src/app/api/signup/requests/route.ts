@@ -4,7 +4,7 @@ import { actor, ApiError, audit, fail, json } from "@/lib/api";
 import { adminClient } from "@/lib/supabase";
 import { driverDetails, vehicleLoginKey } from "@/lib/driver-registration";
 
-const fields = "id,auth_user_id,email,full_name,phone,identity_reference,requested_company,has_driving_licence,trip_type,requested_lorry,requested_vehicle_type,status,created_at";
+const fields = "id,auth_user_id,renewal_driver_id,email,full_name,phone,identity_reference,requested_company,has_driving_licence,trip_type,requested_lorry,requested_vehicle_type,status,created_at";
 
 export async function GET(req: NextRequest) {
   try {

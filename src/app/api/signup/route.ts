@@ -17,6 +17,9 @@ export async function POST(req: NextRequest) {
     if (lookupError) throw new ApiError(503, "Driver sign-up is not ready. Ask the administrator to apply the database migrations.");
     if (matches?.length) throw new ApiError(409, "This vehicle already has a driver account or pending request. Ask the administrator to review it.");
 
+    const existingIdentity=await db.from("drivers").select("id").eq("identity_reference",body.identity_reference).limit(1);
+    if(existingIdentity.error) throw existingIdentity.error;
+    if(existingIdentity.data?.length) throw new ApiError(409,"This identity already has an account. Sign in with your existing email or vehicle and submit re-registration if it expired.");
     const { data, error } = await db.auth.admin.createUser({
       email: body.email,
       password: body.identity_reference,

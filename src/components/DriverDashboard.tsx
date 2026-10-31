@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Loader2, LogOut, MapPin, Smartphone, Truck } from "lucide-react";
+import DriverRenewal from "@/components/DriverRenewal";
 import DriverCheckin from "@/components/DriverCheckin";
 import QRCodeView from "@/components/QRCode";
 import { api } from "@/lib/client-api";
@@ -27,7 +28,7 @@ type DriverVisit = {
   purpose: string | null;
 };
 type DriverData = {
-  driver: { full_name: string; pass_code: string | null; default_trip_type: string | null; companies?: { name: string } | null; lorries?: { registration_number: string; active: boolean }[] };
+  driver: { registration_status: string; full_name: string; pass_code: string | null; default_trip_type: string | null; companies?: { name: string } | null; lorries?: { registration_number: string; active: boolean }[] };
   visits: DriverVisit[];
   todayTripCount: number;
   todayCheckoutCount: number;
@@ -120,7 +121,7 @@ export default function DriverDashboard({ actorInfo }: { actorInfo: Actor }) {
       {error && <div className="notice error">{error}</div>}
       {locationNotice && <div className="notice">{locationNotice}</div>}
       {message && <div className="notice success"><Check size={18}/>{message}</div>}
-      {data?.driver ? <>
+      {data?.driver?.registration_status === "EXPIRED" ? <DriverRenewal/> : data?.driver ? <>
         {data.driver.lorries?.some(lorry => lorry.active)
           ? <DriverCheckin onCheckedIn={load} tripCount={data.todayTripCount} checkoutCount={data.todayCheckoutCount}
               trips={todayTrips} activeVisit={Boolean(activeVisit)}
