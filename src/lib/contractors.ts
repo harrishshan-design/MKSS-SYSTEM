@@ -7,6 +7,8 @@ export const contractorDetails = z.object({
   work_type: z.enum(WORK_TYPES),
 });
 export const contractorSignup = contractorDetails.extend({ identity_reference: contractorIc });
+export const contractorLogin = z.object({ name: z.string().trim().min(2).max(120), password: contractorIc });
+export const normalizeContractorName = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
 export const contractorAttendanceScan = z.object({
   token: z.string().max(160), action: z.enum(["in", "out"]),
   pass_id: z.string().trim().max(80, "Pass ID must be 80 characters or fewer").optional(),

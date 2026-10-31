@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { WORK_TYPES } from "@/lib/contractors";
 
-export default function ContractorSignup({ onBack, onSignIn }: { onBack: () => void; onSignIn: (ic: string) => void }) {
+export default function ContractorSignup({ onBack, onSignIn }: { onBack: () => void; onSignIn: (name: string) => void }) {
   const [form, setForm] = useState({ full_name: "", identity_reference: "", company_name: "", work_type: "" });
   const [busy, setBusy] = useState(false), [done, setDone] = useState(false), [error, setError] = useState("");
   async function submit(event: React.FormEvent) {
@@ -18,8 +18,8 @@ export default function ContractorSignup({ onBack, onSignIn }: { onBack: () => v
   }
   return <><button className="auth-back" onClick={onBack}><ArrowLeft size={16}/> Back to sign in</button><span className="eyebrow">CONTRACTOR REGISTRATION</span>
     <h2>{done ? "Ready to sign in" : "New contractor sign up"}</h2>
-    {done ? <><p>Sign in with your IC or passport number as both your username and initial password. Then scan the same site QR used by drivers to clock in and out. No admin approval is needed. If you already registered, use your existing account.</p><button className="button primary full" onClick={() => onSignIn(form.identity_reference)}>Contractor sign in</button></>
-    : <><p>Register your details once, sign in and scan the site QR. No admin approval or email is needed. Your IC or passport number will be your sign-in ID and initial password.</p><form className="signup-form" onSubmit={submit}><div className="signup-group">
+    {done ? <><p>Sign in with your registered name and use your IC or passport number as your password. Then scan the same site QR used by drivers to clock in and out. No admin approval is needed. If you already registered, use your existing account.</p><button className="button primary full" onClick={() => onSignIn(form.full_name)}>Contractor sign in</button></>
+    : <><p>Register your details once, sign in and scan the site QR. No admin approval or email is needed. Use your name to sign in and your IC or passport number as your password.</p><form className="signup-form" onSubmit={submit}><div className="signup-group">
       <label>Name<input required autoComplete="name" minLength={2} maxLength={120} value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })}/></label>
       <label>IC Number/Passport Number<input required minLength={6} maxLength={12} pattern="[0-9]{6,12}" inputMode="numeric" value={form.identity_reference} onChange={e => setForm({ ...form, identity_reference: e.target.value })}/></label>
       <label>Company name<input required minLength={2} maxLength={120} value={form.company_name} onChange={e => setForm({ ...form, company_name: e.target.value })}/></label>
