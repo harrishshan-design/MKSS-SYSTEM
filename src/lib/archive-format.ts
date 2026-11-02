@@ -14,20 +14,25 @@ export function exportValue(value: unknown): string {
   }
   return text;
 }
-export function archiveGrid(rows: ArchiveRow[]) {
-  const objects = rows.map(row => ({ ...row.record, ...Object.fromEntries(Object.entries(row.context || {}).map(([k, v]) => [`context_${k}`, v])) }));
-  const headers = [...new Set(objects.flatMap(Object.keys))];
-  return [headers, ...objects.map(row => headers.map(header => exportValue(row[header])))];
+export type ArchiveReport = "visits" | "contractor_attendance";
+export function archiveGrid(rows: ArchiveRow[], resource: ArchiveReport = "visits") {
+  const headers = resource === "contractor_attendance"
+    ? ["Name", "IC / Passport number", "Company name"]
+    : ["Time in (MYT)", "Time out (MYT)", "Lorry number", "Company name", "Driver IC", "Driver name"];
+  return [headers, ...rows.map(({ record, context }) => (resource === "contractor_attendance"
+    ? [context?.name, context?.identity_reference, context?.company]
+    : [record.company_time_in, record.company_time_out, context?.vehicle, context?.company, context?.identity_reference, context?.driver]
+  ).map(exportValue))];
 }
-export function archiveCsv(rows: ArchiveRow[]) {
-  return "\uFEFF" + archiveGrid(rows).map(row => row.map(value => `"${(/^[\s]*[=+\-@]/.test(value) ? "'" : "") + value.replaceAll('"', '""')}"`).join(",")).join("\r\n");
+export function archiveCsv(rows: ArchiveRow[], resource: ArchiveReport = "visits") {
+  return "\uFEFF" + archiveGrid(rows, resource).map(row => row.map(value => `"${(/^[\s]*[=+\-@]/.test(value) ? "'" : "") + value.replaceAll('"', '""')}"`).join(",")).join("\r\n");
 }
 const xml = (text: string) => text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 function column(index: number): string { let value = index + 1, result = ""; while (value) { result = String.fromCharCode(65 + (value - 1) % 26) + result; value = Math.floor((value - 1) / 26); } return result; }
 // A bounded workbook part (at most 500 records). Every cell is literal text:
 // identifiers keep leading zeros and untrusted values can never become formulas.
-export function archiveXlsx(rows: ArchiveRow[]) {
-  const grid = archiveGrid(rows), width = grid[0].length;
+export function archiveXlsx(rows: ArchiveRow[], resource: ArchiveReport = "visits") {
+  const grid = archiveGrid(rows, resource), width = grid[0].length;
   const entries: Record<string, Uint8Array> = {};
   const put = (name: string, value: string) => { entries[name] = strToU8(value); };
   put("[Content_Types].xml", '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>');

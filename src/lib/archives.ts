@@ -96,7 +96,7 @@ export async function* downloadArchive(batchId: string) {
   const queue: Uint8Array[] = []; let zipError: Error | null = null;
   const zip = new Zip((error, bytes) => { if (error) zipError = error; else if (bytes) queue.push(bytes); });
   const add = (name: string, data: Uint8Array, compress = false) => { const entry = compress ? new ZipDeflate(name, { level: 6 }) : new ZipPassThrough(name); zip.add(entry); entry.push(data, true); };
-  add("README.txt", strToU8("MKSS operational archive\r\nXLSX and CSV files are numbered parts with at most 500 records each. Combine all parts for a complete resource. Dates in reports use Malaysia time. Raw gzip JSON files preserve original fields, UUIDs, timestamps and row fingerprints. Master data is retained in MKSS; names/company/vehicle context is included with attendance and visits. Open/today/unverified trips are excluded. Keep this entire ZIP in two safe places before confirming cleanup.\r\n"), true);
+  add("README.txt", strToU8("MKSS operational archive\r\nLorry CSV/XLSX reports contain time in, time out, lorry number, company name, driver IC and driver name only. Contractor CSV/XLSX reports contain name, IC/passport number and company name only. Files are numbered parts of at most 500 records; combine all parts for a complete report. Dates use Malaysia time. Blank fields mean no recorded value; times are never invented. Technical recovery files in raw/ and manifest.json preserve original fields, internal IDs, timestamps and row fingerprints for recovery and safe cleanup. Other operational logs are stored only in raw/. Master data stays in MKSS. Open/today/unverified trips are excluded. Keep this entire ZIP in two safe places before confirming cleanup.\r\n"), true);
   while (queue.length) yield queue.shift()!;
   let cursor = 0, total = 0;
   for (;;) {
@@ -106,8 +106,10 @@ export async function* downloadArchive(batchId: string) {
     for (const chunk of page.data as Chunk[]) {
       const { bytes, rows } = await chunkData(chunk);
       const base = `${chunk.resource}/part_${String(chunk.id).padStart(6, "0")}`;
-      add(`${base}.csv`, strToU8(archiveCsv(rows)), true);
-      add(`${base}.xlsx`, archiveXlsx(rows));
+      if (chunk.resource === "visits" || chunk.resource === "contractor_attendance") {
+        add(`${base}.csv`, strToU8(archiveCsv(rows, chunk.resource)), true);
+        add(`${base}.xlsx`, archiveXlsx(rows, chunk.resource));
+      }
       add(`raw/${base}.json.gz`, bytes);
       total += rows.length; cursor = chunk.id;
       while (queue.length) yield queue.shift()!;
