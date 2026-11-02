@@ -53,3 +53,5 @@
 .storage-warning{padding:22px;border:1px solid #e3a4a4;background:#fff2f2;border-radius:12px;margin-bottom:22px}.archive-confirm{display:flex;align-items:center;gap:12px;margin:20px 0}.archive-confirm input{width:auto}.archive-history{padding:18px 0;border-top:1px solid #e5e8e7}.settings-panel progress{accent-color:#1d665e}.settings-panel details{margin-top:24px}.settings-panel details summary{cursor:pointer}
 
 .archive-actions{flex-wrap:wrap}
+.induction-check { display: flex; align-items: flex-start; gap: 12px; margin: 20px 0 12px; }
+.induction-check input { width: 22px; height: 22px; flex: 0 0 22px; margin: 0; }

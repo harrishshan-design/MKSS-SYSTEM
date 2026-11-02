@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     const who = await actor(req, ["contractor"]);
     const db = adminClient();
     const [person, attendance] = await Promise.all([
-      db.from("contractors").select("id,full_name,company_name,work_type,status").eq("auth_user_id", who.id).single(),
+      db.from("contractors").select("id,full_name,company_name,work_type,status,induction_version,induction_confirmed_at").eq("auth_user_id", who.id).single(),
       db.from("contractor_attendance").select("id,date,time_in,time_out,site,pass_id").eq("contractor_id", who.contractor_id).eq("date", siteDate()).maybeSingle(),
     ]);
     if (person.error || attendance.error) throw person.error || attendance.error;
