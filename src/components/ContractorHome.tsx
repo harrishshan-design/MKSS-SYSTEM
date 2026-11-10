@@ -13,10 +13,9 @@ type Data = { person: { full_name: string; company_name: string; work_type: stri
 export default function ContractorHome({ actorInfo }: { actorInfo: Actor }) {
   const [data, setData] = useState<Data | null>(null), [error, setError] = useState(""), [scanning, setScanning] = useState(false), [busy, setBusy] = useState(false);
   const [passId, setPassId] = useState("");
-  const [opened, setOpened] = useState(false), [confirmed, setConfirmed] = useState(false);
   async function confirmInduction(event: React.FormEvent) {
     event.preventDefault();
-    if (!opened || !confirmed) return;
+    if (busy) return;
     setBusy(true); setError("");
     try { await api("contractors/induction", { method: "POST", body: JSON.stringify({ confirmed: true, version: INDUCTION_VERSION }) }); await load(); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
@@ -39,11 +38,12 @@ export default function ContractorHome({ actorInfo }: { actorInfo: Actor }) {
         : !inductionComplete(data.person) && !data.attendance ? <section className="location-card" aria-labelledby="induction-heading">
           <span className="eyebrow">STEP 1 · SAFETY FIRST</span><h2 id="induction-heading">Contractor Safety Induction</h2>
           <p>Complete Premier Centre Group’s safety induction before getting your gate pass and clocking in. You only need to confirm this once for the current induction.</p>
-          <a className="button primary full" href={INDUCTION_URL} target="_blank" rel="noopener noreferrer" onClick={() => setOpened(true)}>Open safety induction ↗</a>
+          <a className="button primary full" href={INDUCTION_URL} target="_blank" rel="noopener noreferrer">Open safety induction ↗</a>
           <p>Submit the Google Form in the new tab, then return here.</p>
-          <form onSubmit={confirmInduction}><label className="induction-check"><input type="checkbox" checked={confirmed} disabled={!opened || busy} onChange={event => setConfirmed(event.target.checked)}/><span>I have submitted the induction and understand the site safety requirements.</span></label>
+          <form onSubmit={confirmInduction}>
+            <p>By tapping “I agree”, I confirm that I have completed the induction and agree to follow the site safety requirements.</p>
             <p className="muted">This is your declaration. MKSS does not verify the Google Form response.</p>
-            <button className="button primary full" disabled={busy || !opened || !confirmed}>{busy ? "Saving…" : "Confirm and continue to gate pass"}</button>
+            <button className="button primary full" disabled={busy}>{busy ? "Saving…" : "I agree — Continue to Pass ID"}</button>
           </form>
         </section> : <div className="location-card"><h2>{data.attendance?.time_out ? "Attendance completed today" : data.attendance ? "You are clocked in" : "Gate pass & time-in"}</h2>
           {inductionComplete(data.person) && <p className="notice">Safety induction confirmed · self-declared</p>}
