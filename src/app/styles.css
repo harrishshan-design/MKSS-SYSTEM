@@ -55,3 +55,11 @@
 .archive-actions{flex-wrap:wrap}
 .induction-check { display: flex; align-items: flex-start; gap: 12px; margin: 20px 0 12px; }
 .induction-check input { width: 22px; height: 22px; flex: 0 0 22px; margin: 0; }
+.camera-help { border: 1px solid var(--line); background: #f5f8f3; border-radius: 12px; padding: 16px; margin: 16px 0; }
+.camera-help h3 { margin-bottom: 8px; }
+.camera-help p, .camera-help li { line-height: 1.55; font-size: 13px; }
+.camera-help ol { padding-left: 22px; }
+.camera-help li { margin-bottom: 10px; }
+.camera-help label { display: grid; gap: 6px; font-weight: 700; }
+.camera-help select { width: 100%; min-height: 44px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.scanner-modal { max-height: 92dvh; overflow-y: auto; }

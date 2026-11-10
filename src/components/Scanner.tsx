@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useId, useState } from "react";
 import { Keyboard, X } from "lucide-react";
+import { cameraIssue, type CameraIssue } from "@/lib/camera-help";
+import CameraHelp from "@/components/CameraHelp";
 
 export default function Scanner({ onScan, onClose, title = "Scan QR code" }: {
   onScan: (value: string) => void;
@@ -9,7 +11,8 @@ export default function Scanner({ onScan, onClose, title = "Scan QR code" }: {
 }) {
   const id = useId().replace(/:/g, "");
   const [manual, setManual] = useState("");
-  const [cameraError, setCameraError] = useState("");
+  const [issue, setIssue] = useState<CameraIssue | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let scanner: import("html5-qrcode").Html5Qrcode | undefined;
@@ -37,18 +40,18 @@ export default function Scanner({ onScan, onClose, title = "Scan QR code" }: {
         }, () => {});
         if (closed) await stopCamera();
       } catch (error) {
-        if (!closed) setCameraError(error instanceof Error ? error.message : "Camera unavailable");
+        if (!closed) setIssue(cameraIssue(error));
       }
-    }).catch(() => { if (!closed) setCameraError("Camera unavailable"); });
+    }).catch(() => { if (!closed) setIssue("unavailable"); });
 
     return () => { closed = true; void stopCamera(); };
-  }, [id, onScan]);
+  }, [id, onScan, attempt]);
 
   return <div className="modal-backdrop" role="presentation"><div className="modal scanner-modal" role="dialog" aria-modal="true" aria-label={title}>
     <div className="modal-header"><div><span className="eyebrow">CAMERA SCANNER</span><h2>{title}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close"><X size={20}/></button></div>
     <div id={id} className="camera-box"/>
     <p className="muted center">Place the QR code inside the frame. Scanning stops after detection.</p>
-    {cameraError && <div className="notice error">{cameraError}. You can enter the code below.</div>}
+    {issue && <CameraHelp issue={issue} onRetry={() => { setIssue(null); setAttempt(value => value + 1); }}/>}
     <label className="field-label"><Keyboard size={16}/> Enter QR ID manually<input value={manual} onChange={event => setManual(event.target.value)} placeholder="Paste QR UUID"/></label>
     <button className="button primary full" disabled={!manual.trim()} onClick={() => onScan(manual.trim())}>Submit code</button>
   </div></div>;
