@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, KeyRound, Loader2, Mail, RefreshCw } from "lucide-react";
 import { api } from "@/lib/client-api";
 import PasswordInput from "@/components/PasswordInput";
+import CreateDriverAccount from "@/components/CreateDriverAccount";
 
 type DriverAccount = {
   id: string; name: string; email: string; active: boolean;
@@ -55,6 +56,7 @@ export default function DriverAccounts() {
   }
 
   return <div className="panel settings-panel driver-accounts"><div className="row between"><div><span className="eyebrow">DRIVER LOGINS</span><h2>Manage driver credentials</h2><p>Update a driver&apos;s sign-in email or set a new password. Existing passwords cannot be viewed.</p></div><button className="button secondary" onClick={refresh} disabled={loading}><RefreshCw size={16}/> Refresh</button></div>
+    <CreateDriverAccount onCreated={() => void refresh()}/>
     {error && <div className="notice error">{error}</div>}
     {message && <div className="notice success"><Check size={16}/>{message}</div>}
     {loading ? <div className="center pad"><Loader2 className="spin" size={22}/></div> : rows.length === 0 ? <p className="muted">No approved driver accounts yet.</p> : <div className="driver-account-list">{rows.map(row => <div className="driver-account-row" key={row.id}><div><strong>{row.name}</strong><span>{row.email || "No email · vehicle login"}</span><small>{row.drivers?.companies?.name || "No company"} · {row.drivers?.lorries?.map(lorry => lorry.registration_number).join(", ") || "No vehicle"}{!row.active && " · Inactive"}</small></div><div className="registration-controls"><button className="button secondary" onClick={() => start(row, "email")}><Mail size={15}/> Edit email</button><button className="button secondary" onClick={() => start(row, "password")}><KeyRound size={15}/> Set password</button></div></div>)}</div>}

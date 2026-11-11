@@ -63,3 +63,7 @@
 .camera-help label { display: grid; gap: 6px; font-weight: 700; }
 .camera-help select { width: 100%; min-height: 44px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: white; }
 .scanner-modal { max-height: 92dvh; overflow-y: auto; }
+.create-driver-account { margin: 20px 0; }
+.create-driver-account form { padding: 20px; margin-top: 16px; border: 1px solid var(--line); border-radius: 12px; background: #f7faf5; }
+.create-driver-account .full { grid-column: 1 / -1; }
+.create-driver-account .registration-controls { flex-wrap: wrap; }

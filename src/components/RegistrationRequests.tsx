@@ -5,6 +5,7 @@ import { ArrowRight, Check, Loader2, Pencil, RefreshCw } from "lucide-react";
 import { api } from "@/lib/client-api";
 import type { TripType } from "@/lib/trip-type";
 import { siteDateTime } from "@/lib/date";
+import CreateDriverAccount from "@/components/CreateDriverAccount";
 
 type Request = {
   id: string;
@@ -67,6 +68,7 @@ export default function RegistrationRequests({ onChanged }: { onChanged?: () => 
   }
 
   return <>
+    <CreateDriverAccount onCreated={() => { void refresh(); onChanged?.(); }}/>
     <div className="page-header"><div><span className="eyebrow">ACCESS MANAGEMENT</span><h1>Driver registrations</h1><p>Review the submitted details and approve the driver and vehicle.</p></div><button className="button secondary" onClick={refresh} disabled={busy}><RefreshCw size={16}/> Refresh</button></div>
     {error && <div className="notice error">{error}</div>}
     {message && <div className="notice success"><Check size={17}/>{message}</div>}
